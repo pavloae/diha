@@ -4,9 +4,9 @@ from unittest import TestCase
 import numpy as np
 
 from diha.components import Force
-from src.diha.fibers import RoundFiber
-from src.diha.materials import ConcreteMaterial, SteelMaterial
-from src.diha.sections import RectangularRCSection
+from diha.fibers import RoundFiber
+from diha.materials import ConcreteMaterial, SteelMaterial
+from diha.sections import RectangularRCSection
 
 logging.basicConfig(level=logging.DEBUG)
 

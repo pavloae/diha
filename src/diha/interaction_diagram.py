@@ -139,7 +139,29 @@ class ReinforcementConcreteSection(PlotterMixin):
             self.analyze()
 
     def iterate_slope(self):
-        pass
+
+        conditions = []
+        iteration = 0
+
+        condition_1 = (self.concrete_status.min_strain == self.concrete.limit_strain and
+                       self.steel_status.max_strain < self.steel.limit_strain)
+
+        condition_2 = (self.concrete_status.min_strain == self.concrete.limit_strain and
+                       self.steel_status.max_strain < self.steel.limit_strain)
+
+        condition_3 = iteration < self.max_iterations
+
+        conditions = [condition_1, condition_2, condition_3]
+
+        def rot():
+            pass
+
+        while all(conditions):
+            iteration += 1
+
+            rot = 2 * self.concrete.limit_strain + self.concrete_status.min_strain
+
+
 
     def iterate(self):
 
@@ -215,10 +237,10 @@ class ReinforcementConcreteSection(PlotterMixin):
 
         iteration = 0
 
-        while not (self.equal_eccentricity_direction() and self.is_limit_plane()) or iteration < self.max_iterations:
+        while not (self.equal_eccentricity_direction() and self.is_limit_plane()) and iteration < self.max_iterations:
             iteration += 1
 
-            self.iterate_depht()
+            self.iterate_slope()
 
     def calc_Pu(self):
 
@@ -232,7 +254,7 @@ class ReinforcementConcreteSection(PlotterMixin):
 
         iteration = 0
 
-        while not (self.equal_eccentricity_direction() and self.is_limit_plane()) or iteration < self.max_iterations:
+        while not (self.equal_eccentricity_direction() and self.is_limit_plane()) and iteration < self.max_iterations:
             iteration += 1
 
     def calc_Mu(self):
