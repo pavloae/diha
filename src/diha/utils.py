@@ -41,3 +41,29 @@ def angle(a, b):
         theta += 2 * np.pi
 
     return theta
+
+def calc_angle_yz(u, v):
+    """
+        Calcula el ángulo en el plano yz para ir de la proyección del vector u a la proyección del vector v considerando
+        positivo el giro en sentido antihorario (regla de la mano derecha)
+
+    @param u: vector inicial
+    @param v: vector final
+    @return: un ángulo en radianes entre [0, 2*pi) con su signo
+    """
+
+    u[0] = 0
+    v[0] = 0
+
+    norm_u = np.linalg.norm(u)
+    norm_v = np.linalg.norm(v)
+
+    if norm_u == 0 or norm_v == 0:
+        return 0
+
+    un = u / norm_u
+    vn = v / norm_v
+
+    theta = np.arccos(np.dot(un, vn))
+
+    return theta if np.cross(un, vn)[0] >= 0 else 2 * np.pi - theta
