@@ -30,16 +30,11 @@ class SteelMaterial(Material):
 
 class ConcreteMaterial(Material):
 
-    diagram_type = 1
-
     def __init__(self, fpc=20):
         """
-            Clase para definir la relación constitutiva tensión-deformación en el hormigón. Se consideran dos tipos de
-            diagrams:
-                        1: Diagrama triángulo-rectángulo utilizado para las primeras etapas de deformación.
-                        2: Diagrama rectangular de tensiones utilizado para definir las cargas de rotura.
+            Clase para definir la relación constitutiva tensión-deformación en el hormigón.
 
-        :param fpc: Resistencia aaracterística a compresion del hormigón.
+        :param fpc: Resistencia característica a compresión del hormigón.
         """
         super().__init__()
         self.fpc = fpc
@@ -59,7 +54,7 @@ class ConcreteMaterial(Material):
             Calcula el factor que relaciona la altura del bloque de tensiones de compresión rectangular
             equivalente con la profundidad del eje neutro. Ver el artículo 10.2.7.3
 
-        :return:
+        :return: Un escalar adimensional
         """
         if not self._beta1:
             if self.fpc <= 30:
@@ -80,21 +75,6 @@ class ConcreteMaterial(Material):
             self._min_stress = -.85 * self.fpc
         return self._min_stress
 
-    def _get_stress_triangle_rectangle(self, strain):
-
-        if strain <= self.epsilon_t:
-            return self.min_stress
-        elif strain < 0:
-            return self.min_stress / self.epsilon_t * strain
-
-        return 0
-
-    def _get_stress_rectangle(self, strain):
-        if strain <= self.epsilon_t:
-            return self.min_stress
-
-        return 0
-
     def get_stress(self, strain):
         """
             La tensión en el hormigón se adopta igual a 0,85 f’c , y se supone
@@ -106,7 +86,7 @@ class ConcreteMaterial(Material):
         :return: Tensión de la fibra de hormigón, en MPa.
         """
 
-        if self.diagram_type == 1:
-            return self._get_stress_triangle_rectangle(strain) * self.factor
+        if strain <= self.epsilon_t:
+            return self.factor * self.min_stress
 
-        return self._get_stress_rectangle(strain) * self.factor
+        return 0

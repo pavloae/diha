@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+from matplotlib import pyplot as plt, patches
 
 from .components import Force
 from .materials import Material
@@ -12,21 +13,48 @@ class Fiber:
         super().__init__()
         self.material: Material = material
         self.center = center
+
         self.y = center[0]
         self.z = center[1]
-        self.area = area
+        self.point = np.array([0, self.y, self.z])
+        self._area = area
 
-        self.strain = None
-        self.stress = None
-        self.force = Force()
+        self.distance_nn = None
+        self.distance_nn_cg = None
+        self._strain = None
+        self._stress = None
+        self._force = None
 
-    def set_strain(self, strain_plane):
-        self.strain = strain_plane.get_strain(self.y, self.z)
+    @property
+    def strain(self):
+        return self._strain
 
-    def set_force(self):
-        self.stress = self.material.get_stress(self.strain)
-        N = self.stress * self.area
-        self.force = Force(N, N * self.z, -N * self.y)
+    @strain.setter
+    def strain(self, strain):
+        self._stress = None
+        self._force = None
+        self._strain = strain
+
+    @property
+    def area(self):
+        return self._area
+
+    @property
+    def stress(self):
+        if not self._stress:
+            self._stress = self.material.get_stress(self.strain)
+        return self._stress
+
+    @property
+    def force(self):
+        if not self._force:
+            N = self.stress * self.area
+            self._force = Force(N, N * self.z, -N * self.y)
+
+        return self._force
+
+    def plot(self, ax):
+        pass
 
 
 class RectFiber(Fiber):
@@ -36,17 +64,12 @@ class RectFiber(Fiber):
         self.dy = dy
         self.dz = dz
 
-    def get_top_left(self):
-        return self.center[0] + self.dy / 2, self.center[1] - self.dz / 2
-
-    def get_top_right(self):
-        return self.center[0] + self.dy / 2, self.center[1] + self.dz / 2
-
-    def get_bottom_left(self):
-        return self.center[0] - self.dy / 2, self.center[1] - self.dz / 2
-
-    def get_bottom_right(self):
-        return self.center[0] - self.dy / 2, self.center[1] + self.dz / 2
+    def plot(self, ax):
+        y0, z0 = self.center[0] - self.dy / 2, self.center[1] - self.dz / 2
+        rect = patches.Rectangle(
+            (z0, y0), self.dy, self.dz, edgecolor="gray", facecolor="lightblue", alpha=0.5
+        )
+        ax.add_patch(rect)
 
 
 class RoundFiber(Fiber):
@@ -55,36 +78,21 @@ class RoundFiber(Fiber):
         super().__init__(material, center, np.pi / 4 * diam ** 2)
         self.diam = diam
 
+    def plot(self, ax):
+        y, z = self.center
+        circle = plt.Circle((z, y), self.diam / 2, color='red', alpha=0.7)
+        ax.add_patch(circle)
+
 
 class GroupFiberStatus:
 
     def __init__(self):
         super().__init__()
         self.force = Force()
-        self.max_strain = None
-        self.min_strain = None
-        self.max_stress = None
-        self.min_stress = None
 
     def update(self, fibers: List[Fiber]):
 
         self.force.clean()
-        self.max_strain = None
-        self.min_strain = None
-        self.max_stress = None
-        self.min_stress = None
 
         for fiber in fibers:
             self.force += fiber.force
-
-            if not self.max_strain or fiber.strain > self.max_strain:
-                self.max_strain = fiber.strain
-
-            if not self.min_strain or fiber.strain < self.min_strain:
-                self.min_strain = fiber.strain
-
-            if not self.max_stress or fiber.stress > self.max_stress:
-                self.max_stress = fiber.stress
-
-            if not self.min_stress or fiber.stress < self.min_stress:
-                self.min_stress = fiber.stress

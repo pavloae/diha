@@ -2,17 +2,16 @@ import math
 
 import numpy as np
 
-from .utils import rotation_matrix
-
 
 class Force:
 
     tol = 1e-6  # Tolerancia
 
     def __init__(self, N=0, My=0, Mz=0):
-        self.N = N   # Fuerza normal
-        self.My = My # Momento respecto al eje y
-        self.Mz = Mz # Momento respecto al eje z
+        self.N = N
+        self.My = My
+        self.Mz = Mz
+        self.M = np.array([0, My, Mz])
 
     def clean(self):
         self.N = 0
@@ -30,8 +29,19 @@ class Force:
             ez = self.My / self.N
 
         else:
-            ey = 0 if self.Mz == 0 else -np.inf
-            ez = 0 if self.My == 0 else np.inf
+            if self.Mz == 0:
+                ey = 0
+            elif self.Mz > 0:
+                ey = -np.inf
+            else:
+                ey = np.inf
+
+            if self.My == 0:
+                ez = 0
+            elif self.My > 0:
+                ez = np.inf
+            else:
+                ez = -np.inf
 
         return np.array([0, ey, ez])
 
@@ -97,120 +107,140 @@ class Force:
                 math.isclose(self.Mz, other.Mz, abs_tol=self.tol)
         )
 
+    def __mul__(self, factor):
+        if isinstance(factor, (int, float)):
+            return Force(self.N * factor, self.My * factor, self.Mz * factor)
+        raise TypeError("El multiplicador debe ser un escalar (int o float)")
+
+    def __rmul__(self, factor):
+        return self.__mul__(factor)  # Reutilizamos la lógica de __mul__
+
+
+class ForceExt(Force):
+
+    def __init__(self, force, strain_steel, strain_concrete, factor):
+        super().__init__(force.N, force.My, force.Mz)
+        self.strain_steel = strain_steel
+        self.strain_concrete = strain_concrete
+        self.factor = factor
+
 
 class StrainPlane:
 
-    def __init__(self, n=None, epsilon_o=None):
+    def __init__(self, theta=0, kappa=0, xo=0):
         super().__init__()
 
-        # Vector unitario normal al plano
+        # Angulo entre el vector nn (eje neutro) y el eje z positivo
+        self._theta = theta
+
+        # Escalar que define la máxima pendiente del plano de deformaciones (curvatura)
+        self._kappa = kappa
+
+        # Escalar que define la coordenada del eje x donde se intersecta con el plano
+        self._xo = xo
+
+        # Vector unitario normal al plano de deformaciones
         self._n = None
 
         # Vector unitario que define la dirección del eje neutro
         self._nn = None
 
-        # Vector que define el punto de intersección del plano con el eje x
-        self._nx = np.array([0, 0, 0])
+        # Vector que define el desplazamiento del eje neutro.
+        self._r = None
 
-        self.epsilon_o = None
+    @property
+    def theta(self):
+        return self._theta
 
-        self.kappa_y = 0
-        self.kappa_z = 0
+    @theta.setter
+    def theta(self, theta):
+        self._nn = None
+        self._n = None
+        self._r = None
+        self._theta = theta
 
-        self.n = n or [1, 0, 0]
-        self.set_epsilon_o(epsilon_o or 0)
+    @property
+    def kappa(self):
+        return self._kappa
+
+    @kappa.setter
+    def kappa(self, kappa):
+        self._n = None
+        self._r = None
+        self._kappa = kappa
+
+    @property
+    def xo(self):
+        return self._xo
+
+    @xo.setter
+    def xo(self, xo):
+        self._r = None
+        self._xo = xo
 
     @property
     def n(self):
-
-        if not any(self._n) or self._n[0] <= 0:
-            raise ValueError("El vector normal al plano de deformación no está definido correctamente")
-
+        if self._n is None:
+            alpha = np.arctan(self.kappa)
+            nxy = np.sin(alpha)
+            self._n = np.array([np.cos(alpha), nxy * np.cos(self.theta), nxy * np.sin(self.theta)])
         return self._n
 
-    @n.setter
-    def n(self, n):
+    @property
+    def nn(self):
+        if self._nn is None:
+            self._nn = np.array([0, -np.sin(self.theta), np.cos(self.theta)])
 
-        if not any(n) or n[0] <= 0:
-            raise ValueError("El vector normal al plano de deformación no está definido correctamente")
+        return self._nn
 
-        n = np.array(n)
-        self._n = n / np.linalg.norm(n)
+    @property
+    def r(self):
+        if self._r is None:
+            p = np.cross(self.n, self.nn)
+            if p[0] != 0:
+                factor = self.xo / p[0]
+                self._r = np.array([self.xo, 0, 0]) - factor * p
+            else:
+                self._r = np.array([0, 0, 0])
+        return self._r
 
-        # Si el vector normal al plano conicide con el eje x se define el eje neutro en el sentido del eje z positivo
-        if np.allclose(self._n, np.array([1, 0, 0])):
-            self._nn = np.array([0, 0, 1])
-        else:
-            nn = np.cross([1, 0, 0], self.n)
-            self._nn = nn / np.linalg.norm(nn)
+    def get_dist_nn_cg(self, point):
+        return np.cross(self.nn, point)[0]
 
-        self._set_kappa_y()
-        self._set_kappa_z()
-
-    def set_nx(self, nx):
-        self._nx = nx
-        self.epsilon_o = self._nx[0]
-
-    def set_epsilon_o(self, epsilon_o):
-        self.epsilon_o = epsilon_o
-        self._nx = np.array([self.epsilon_o, 0, 0])
-
-    def _set_kappa_z(self):
-        k_xy = np.cross([0, 0, 1], self.n)
-        self.kappa_z = k_xy[0] / k_xy[1]
-
-    def _set_kappa_y(self):
-        k_zx = np.cross([0, 1, 0], self.n)
-        self.kappa_y = k_zx[0] / k_zx[2]
-
-    def rotate(self, theta):
+    def get_dist_calc(self, point):
         """
-            Rota el plano de deformaciones alrededor del eje x un ángulo theta. El signo del ángulo se corresponde con
-            la regla de la mano derecha.
-        :param theta: Ángulo de rotación [rad].
-        """
-        rotator = rotation_matrix(np.array([1, 0, 0]), theta)
-        self.n = np.dot(rotator, self.n)
+            Calcula la distancia de que hay entre el punto y el eje neutro de la sección, o el eje baricéntrico en caso
+            de que el plano sea horizontal. La distancia se toma positiva si la fibra se encuentra del lado del eje
+            neutro donde una curvatura positiva genera tracción.
 
-    def inclinate(self, theta, axis='nn'):
+        @param point:
+        @return:
         """
-            Rota el plano de deformaciones alrededor del eje y, z o del eje nn (eje neutro) un ángulo theta para
-            inclinarlo.
+        s = point - self.r
+        return np.cross(self.nn, s)[0]
 
-        :param theta: Ángulo de rotación [rad].
-        :param axis: El eje sobre el cual va a rotar el plano: x, y o nn (default).
+    def get_strain(self, point):
+        """
+            Obtiene la deformación específica de un punto determinada por el plano de deformación.
+
+        @param point: Un vector en tres dimensiones sobre el plano YZ
+        @return: La deformación específica. Positiva para estiramiento y negativa para acortamiento.
         """
 
-        if axis == 'y':
-            v = np.array([0, 1, 0])
-        elif axis == 'z':
-            v = np.array([0, 0, 1])
-        else:
-            v = self._nn
+        return self.xo + self.kappa * self.get_dist_nn_cg(point)
 
-        rotator = rotation_matrix(v, theta)
-        self.n = np.dot(rotator, self.n)
-
-    def move(self, epsilon_x):
-        self.set_nx(self._nx + np.array([epsilon_x, 0, 0]))
-
-    def get_strain(self, y, z):
-        return self.epsilon_o + self.kappa_y * z - self.kappa_z * y
-
-    def set_plain(self, point1, point2, point3):
-
-        v1 = np.array(point1)
-        v2 = np.array(point2)
-        v3 = np.array(point3)
-
-        n = np.cross(v3 - v1, v3 - v2)
-        if n[0] < 0:
-            n = -n
-
-        self.n = n / np.linalg.norm(n)
-
-        epsilon_o = point1[0] - self.kappa_y * point1[2] + self.kappa_z * point1[1]
-        self.set_nx(np.array([epsilon_o, 0, 0]))
+    def __repr__(self):
+        return f"StrainPlane(theta={self.theta}, kappa={self.kappa}, xo={self.xo})"
 
     def __str__(self):
-        return f"eo={1000*self.epsilon_o:8.2f}\u2030 - \u03BAz ={1000*self.kappa_y:10.2f} - \u03BAy ={1000*self.kappa_y:10.3f}"
+        return f"theta={self.theta:8.2f} - \u03BA={1000*self.kappa:.5f}\u2030 - xo={1000*self.xo:.5f}\u2030"
+
+
+class Stirrups:
+
+    def __init__(self, type=1, number=None, diam=None, sep=None):
+        super().__init__()
+        self.type = type
+        self.number = number
+        self.diam = diam
+        self.sep = sep

@@ -2,12 +2,22 @@ from unittest import TestCase
 
 import numpy as np
 
-from diha.utils import angle, calc_angle_yz
+from diha.utils import calc_angle_yz
 
 
-class TestAngle(TestCase):
+class TestCalcAngleYZ(TestCase):
 
-    def test_angle_3d(self):
+    def test_calc_angle_yz_2d(self):
+        self.assertAlmostEqual(0.00 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 0, 1])))
+        self.assertAlmostEqual(0.25 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, -1, 1])))
+        self.assertAlmostEqual(0.50 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, -1, 0])))
+        self.assertAlmostEqual(0.75 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, -1, -1])))
+        self.assertAlmostEqual(1.00 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 0, -1])))
+        self.assertAlmostEqual(1.25 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 1, -1])))
+        self.assertAlmostEqual(1.50 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 1, 0])))
+        self.assertAlmostEqual(1.75 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 1, 1])))
+
+    def test_calc_angle_yz_3d(self):
         a = np.array([2, 1, 1])
         b = np.array([5, 0, 1])
         c = np.array([-2, -1, 0])
@@ -20,16 +30,3 @@ class TestAngle(TestCase):
         self.assertAlmostEqual(3 / 4 * np.pi, calc_angle_yz(a, c))
         self.assertAlmostEqual(np.pi, calc_angle_yz(a, -a))
         self.assertAlmostEqual(1.25 * np.pi, calc_angle_yz(a, d))
-
-
-class Test(TestCase):
-
-    def test_calc_angle_yz(self):
-        self.assertAlmostEqual(0.00 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 0, 1])))
-        self.assertAlmostEqual(0.25 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, -1, 1])))
-        self.assertAlmostEqual(0.50 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, -1, 0])))
-        self.assertAlmostEqual(0.75 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, -1, -1])))
-        self.assertAlmostEqual(1.00 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 0, -1])))
-        self.assertAlmostEqual(1.25 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 1, -1])))
-        self.assertAlmostEqual(1.50 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 1, 0])))
-        self.assertAlmostEqual(1.75 * np.pi, calc_angle_yz(np.array([0, 0, 1]), np.array([0, 1, 1])))
