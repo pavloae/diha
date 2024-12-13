@@ -2,6 +2,8 @@ import math
 
 import numpy as np
 
+from diha.utils import calc_angle_yz
+
 
 class Force:
 
@@ -12,6 +14,7 @@ class Force:
         self.My = My
         self.Mz = Mz
         self.M = np.array([0, My, Mz])
+        self._theta_M = None
 
     def clean(self):
         self.N = 0
@@ -44,6 +47,13 @@ class Force:
                 ez = -np.inf
 
         return np.array([0, ey, ez])
+
+    @property
+    def theta_M(self):
+        if self._theta_M is None:
+            if np.isclose(0, np.linalg.norm(self.N), atol=1e-6):
+                self._theta_M = calc_angle_yz(np.array([0, 0, 1]), self.M)
+        return self._theta_M
 
     def __lt__(self, other):
         if not isinstance(other, Force):
@@ -118,11 +128,9 @@ class Force:
 
 class ForceExt(Force):
 
-    def __init__(self, force, strain_steel, strain_concrete, factor):
+    def __init__(self, force, strain_steel):
         super().__init__(force.N, force.My, force.Mz)
         self.strain_steel = strain_steel
-        self.strain_concrete = strain_concrete
-        self.factor = factor
 
 
 class StrainPlane:

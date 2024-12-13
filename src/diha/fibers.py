@@ -56,6 +56,11 @@ class Fiber:
     def plot(self, ax):
         pass
 
+    def set_negative(self):
+        if self._area > 0:
+            self._area *= -1
+        return self
+
 
 class RectFiber(Fiber):
 

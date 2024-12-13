@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import numpy as np
 
-from diha.components import StrainPlane
+from diha.components import StrainPlane, Force
 
 
 class TestStrainPlane(TestCase):
@@ -140,3 +140,10 @@ class TestStrainPlane(TestCase):
         self.assertTrue(np.allclose(sp.get_strain(np.array([0, -e, -e])), 0.1))
         self.assertTrue(np.allclose(sp.get_strain(np.array([0, e, -e])), 0))
         self.assertTrue(np.allclose(sp.get_strain(np.array([0, e, e])), -0.1))
+
+
+class TestForce(TestCase):
+
+    def test_theta_m(self):
+        force = Force(N=-7501670, My=0, Mz=0)
+        print(force.theta_M)

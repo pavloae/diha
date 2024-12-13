@@ -46,8 +46,6 @@ class ConcreteMaterial(Material):
 
         self.limit_strain = -0.003
 
-        self.factor = 1
-
     @property
     def beta1(self):
         """
@@ -86,7 +84,7 @@ class ConcreteMaterial(Material):
         :return: Tensión de la fibra de hormigón, en MPa.
         """
 
-        if strain <= self.epsilon_t:
-            return self.factor * self.min_stress
+        if self.epsilon_lim <= strain <= self.epsilon_t:
+            return self.min_stress
 
         return 0

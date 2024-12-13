@@ -5,8 +5,8 @@ from .materials import ConcreteMaterial
 
 class RectangularRCSection(ReinforcementConcreteSection):
 
-    def __init__(self, concrete, steel, b, h, bars, stirrups=None, div_y=None, div_z=None, N=0, My=0, Mz=0, max_initial_strain=0.001):
-        super().__init__(concrete, steel, bars, stirrups, N, My, Mz, max_initial_strain)
+    def __init__(self, concrete, steel, b, h, bars, stirrups=None, div_y=None, div_z=None):
+        super().__init__(concrete, steel, bars, stirrups)
         self.b = b
         self.h = h
 
@@ -42,10 +42,8 @@ class RectangularRCSection(ReinforcementConcreteSection):
                     )
                 )
 
-        concrete_negative = ConcreteMaterial()
-        concrete_negative.factor = -1
-
+        # Se descuentan las armaduras para el cálculo de las fuerzas generadas por el hormigón a compresión
         for fiber in self.steel_fibers:
             self.concrete_fibers.append(
-                RoundFiber(concrete_negative, fiber.center, fiber.diam)
+                RoundFiber(ConcreteMaterial(), fiber.center, fiber.diam).set_negative()
             )
