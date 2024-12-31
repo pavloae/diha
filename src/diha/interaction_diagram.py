@@ -4,10 +4,9 @@ from typing import List
 import numpy as np
 from matplotlib import pyplot as plt
 
-from .components import Force, StrainPlane, ForceExt
+from .components import Force, StrainPlane
 from .fibers import RectFiber, RoundFiber, GroupFiberStatus, Fiber
 from .materials import SteelMaterial, ConcreteMaterial
-from .utils import calc_angle_yz
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ class ReinforcementConcreteSection:
         self.concrete_status = GroupFiberStatus()
         self.steel_status = GroupFiberStatus()
 
-        # Ángulo desde el plano zx hacia el semiplano que contiene al eje x y sobre el cual se define la curva de
+        # Ángulo desde el plano zx hacia el semiplano que contiene al eje "x" y sobre el cual se define la curva de
         # interacción.
         self._Ag = None
         self._As = None
@@ -106,11 +105,42 @@ class ReinforcementConcreteSection:
         else:
             return np.interp(strain_steel, [0.002, 0.005], [0.65, 0.90])
 
+    @staticmethod
+    def get_farthest_fiber(fibers: List[Fiber], strain_plane: StrainPlane, compression=True)->Fiber:
+        """
+            Dado un conjunto de fibras y un plano de deformaciones obtiene la fibra a compresión o tracción más alejada
+            del eje neutro.
+        @param fibers: Una lista de fibras
+        @param strain_plane: Un plano de deformaciones
+        @param compression: Especifica si se obtendrá la fibra más comprimida (o menos traccionada): compression=True;
+                            o la fibra más traccionada (o menos comprimida) compression=False.
+        @return: La fibra más alejada del eje neutro.
+        """
+        farthest_fiber = None
+
+        for fiber in fibers:
+
+            fiber.distance_nn = strain_plane.get_dist_calc(fiber.point)
+            fiber.distance_nn_cg = strain_plane.get_dist_nn_cg(fiber.point)
+
+            if not farthest_fiber or (compression == fiber.distance_nn <= farthest_fiber.distance_nn):
+                farthest_fiber = fiber
+
+        return farthest_fiber
+
+    @staticmethod
+    def _get_e(force):
+        if force:
+            if force.N != 0:
+                return np.linalg.norm(force.M) / force.N
+            return np.inf
+        return 0
+
     def Pn_max(self, strain_steel):
 
         phi = self.phi(strain_steel)
 
-        coef = 0.85 if self.stirrups and self.stirrups.type == 2 else 0.80
+        coef = 0.85 if self.stirrups and self.stirrups.stirrup_type == 2 else 0.80
 
         return -coef * phi * (0.85 * self.concrete.fpc * (self.Ag - self.As) + self.steel.fy * self.As) * 1e-3
 
@@ -129,38 +159,6 @@ class ReinforcementConcreteSection:
 
         self.force_i = self.concrete_status.force + self.steel_status.force
 
-    def get_farthest_fiber_compression(self, fibers: List[Fiber], strain_plane=None):
-
-        strain_plane = strain_plane or self.strain_plane
-
-        farthest_fiber_compression = None
-
-        for fiber in fibers:
-
-            fiber.distance_nn = strain_plane.get_dist_calc(fiber.point)
-            fiber.distance_nn_cg = strain_plane.get_dist_nn_cg(fiber.point)
-
-            if not farthest_fiber_compression or fiber.distance_nn < farthest_fiber_compression.distance_nn:
-                farthest_fiber_compression = fiber
-
-        return farthest_fiber_compression
-
-    def get_farthest_fiber_tension(self, fibers: List[Fiber], strain_plane=None):
-
-        strain_plane = strain_plane or self.strain_plane
-
-        farthest_fiber_tension = None
-
-        for fiber in fibers:
-
-            fiber.distance_nn = strain_plane.get_dist_calc(fiber.point)
-            fiber.distance_nn_cg = strain_plane.get_dist_nn_cg(fiber.point)
-
-            if not farthest_fiber_tension or fiber.distance_nn > farthest_fiber_tension.distance_nn:
-                farthest_fiber_tension = fiber
-
-        return farthest_fiber_tension
-
     def get_limits_strain(self, param):
         """
             Obtiene las deformaciones límites del hormigón y el acero en función de una relación lineal de un parámetro
@@ -178,34 +176,36 @@ class ReinforcementConcreteSection:
         return strain_concrete, strain_steel
 
     def _get_params(self, strain_concrete, strain_steel):
-        ffc = self.get_farthest_fiber_compression(self.concrete_fibers)  # Fibra más alejada de hormigón
-        ffs = self.get_farthest_fiber_tension(self.steel_fibers)  # Fibra más alejada de acero
-        distance = ffs.distance_nn - ffc.distance_nn
+        ffc = self.get_farthest_fiber(self.concrete_fibers, self.strain_plane, compression=True)  # Fibra más alejada de hormigón
+        ffs = self.get_farthest_fiber(self.steel_fibers, self.strain_plane, compression=False)  # Fibra más alejada de acero
+        distance = ffc.distance_nn - ffs.distance_nn
 
         curvature_required = (strain_steel - strain_concrete) / distance
 
-        strain_cg_required = curvature_required * -ffc.distance_nn_cg + strain_concrete
+        strain_cg_required = curvature_required * ffc.distance_nn_cg + strain_concrete
 
         return curvature_required, strain_cg_required
 
-    def set_limit_plane_by_strains(self, strain_concrete, strain_steel, theta_me=None):
+    def set_limit_plane_by_strains(self, strain_concrete, strain_steel, theta_me=0, max_iterations=None):
         """
             Configura un plano límite en la sección de forma tal que la fibra más comprimida del hormigón y la más
             traccionada del acero coincidan con los valores especificados y el ángulo entre el vector resultante de los
-            momentos internos y el vector positivo del eje z coincida con el ángulo especificado.
+            momentos internos y el vector positivo del eje "z" coincida con el ángulo especificado.
 
-        @param theta_me: Ángulo entre la resultante de los momentos y el eje z positivo. En radianes.
+        @param strain_steel: Deformación específica de la fibra de hormigón más comprimida o menos traccionada.
+        @param strain_concrete: Deformación específica de la fibra de acero más traccionada o menos comprimida.
+        @param theta_me: Ángulo entre la resultante de los momentos y el eje "z" positivo. En radianes.
+        @param max_iterations:
         """
 
-        # Configura el ángulo del plano sobre el que se construirá el diagrama de interacción
-        theta_me = theta_me or self._get_theta_me(self.force_e)
+        max_iterations = max_iterations or self.max_iterations or 200
 
         # Construye un plano inicial para poder determinar los primeros parámetros
         self.strain_plane = StrainPlane(theta=theta_me)
 
-        # Debido a que la condición de deformaciones límites ya ha sido establecida para los elementos extremos solo se
-        # verifica que el eje neutro no haya rotado al deformar la sección: La resultante de momentos internos debe
-        # coincidir con el ángulo definido.
+        # Debido a que la condición de deformaciones límites será establecida para las fibras extremas solo se
+        # verifica que el eje neutro no haya rotado luego de deformar la sección: La resultante de momentos internos
+        # debe coincidir con el ángulo preestablecido.
         def condition():
             kappa, xo = self._get_params(strain_concrete, strain_steel)
             self.strain_plane.kappa = kappa
@@ -220,39 +220,59 @@ class ReinforcementConcreteSection:
             return np.isclose(theta_me, theta_mi, rtol=1.e-5, atol=1.e-8)
 
         iteration = 0
-        while not condition() and iteration < self.max_iterations:
+        while not condition():
             iteration += 1
+
+            if iteration >= max_iterations:
+                raise StopIteration
+
             delta_theta = theta_me - self.force_i.theta_M
             self.strain_plane.theta += delta_theta
 
-        if iteration >= self.max_iterations:
-            raise StopIteration
+    def set_limit_plane_by_eccentricity(self, ee, theta_me, spp_inf=0.0, spp_sup=1.0, iteration=0, max_iterations=200):
+        """
+            Configura un plano límite para la sección en donde la resultante de las fuerzas internas tenga una
+            excentricidad igual a la indicada y el vector de momentos forme un ángulo con el eje "z" igual al indicado.
 
-    @staticmethod
-    def _get_theta_me(force=None):
-        if force and not np.isclose(0, np.linalg.norm(force.M), atol=1e-6):
-            return calc_angle_yz(np.array([0, 0, 1]), force.M)
-        return 0
+            Es decir, determina el plano que define el punto donde se intersectan la recta de ee = M / N con la curva
+            del diagrama de interacción para una flexión oblicua determinada por theta_me.
 
-    @staticmethod
-    def _get_e(force):
-        if force:
-            if force.N != 0:
-                return np.linalg.norm(force.M) / force.N
-            return np.inf
-        return 0
+            La parametrización de los distintos planos límites que van desde spp=0 para la sección sometida a compresión
+            pura, hasta spp=1 para la sección sometida a tracción pura, determina una excentricidad de las fuerzas
+            internas que varía en función de dicho parámetro. Siendo:
 
-    def set_limit_plane_by_eccentricity(self, ee, theta_me=None, **kwargs):
-        theta_me = theta_me or self._get_theta_me(self.force_e)
+            ee(spp=0) = 0           (Para el caso de compresión pura)
 
-        # Si no se especifica una excentricidad se genera una ambiguedad al no saber si se trata de tracción pura o
-        # compresión pura.
+            ee(spp<spp_lim) < 0     (Tramo continuo de la función)
+
+            lim ee(spp) = -∞        (Para el caso de flexión pura desde la compresión)
+              spp->+spp_lim
+
+                ------ Discontinuidad de la función en spp_lim cuando N=0 ----------
+
+            lim ee(spp) = +∞        (Para el caso de flexión pura desde la tracción)
+              spp->+spp_lim
+
+            ee(spp>spp_lim) > 0     (Tramo continuo de la función)
+
+            ee(spp=1) = 0           (Para el caso de tracción pura)
+
+            El cálculo del plano se realiza mediante el método de la bisección, utilizando como extremos iniciales los
+            planos de compresión y tracción pura.
+
+        @param ee: Excentricidad de las fuerzas externas ee = M / N. Adoptándose M siempre positiva, el signo de la
+                    excentricidad será positivo con una fuerza de tracción y negativo con una fuerza de compresión.
+        @param theta_me: Ángulo que forma el vector de momentos exteriores con el eje "z" positivo. [rad]
+        @param spp_inf: El parámetro que define el plano de deformación inferior. Un número real entre 0 y 1.
+        @param spp_sup: El parámetro que define el plano de deformación inferior. Un número real entre 0 y 1.
+        @param iteration: El número iteración actual
+        @param max_iterations: El número máximo de iteraciones permitidas
+        """
+
+        # Si no se especifica una excentricidad (ee=0) se genera una ambigüedad al no saber si se trata de tracción pura
+        # o compresión pura.
         if ee == 0:
-            raise ValueError("No se pudo resolver un valor de excentricidad distinto de cero")
-
-        spp_inf = kwargs.get("spp_inf", 0.0)
-        spp_sup = kwargs.get("spp_sup", 1.0)
-        kwargs["iteration"] = kwargs.get("iteration", 0) + 1
+            raise ValueError("Se debe especificar una excentricidad distinta de cero.")
 
         # Se genera un punto intermedio entre los planos de deformación parametrizados para aplicar el método
         # iterativo por bisección.
@@ -261,37 +281,41 @@ class ReinforcementConcreteSection:
         # Se obtienen las deformaciones específicas en función de la parametrización.
         strain_concrete, strain_steel = self.get_limits_strain(spp_mid)
 
-        # Se aplica el plano y obtiene la excentricidad de las fuerzas internas.
-        self.set_limit_plane_by_strains(strain_concrete, strain_steel, theta_me=theta_me)
-        ei = self._get_e(self.force_i)
-        logger.debug("%d (%f): [%f ; %f]", kwargs["iteration"], spp_mid, strain_concrete, strain_steel)
+        # Se aplica el plano por deformaciones y se obtiene la excentricidad de las fuerzas internas.
+        self.set_limit_plane_by_strains(strain_concrete, strain_steel, theta_me)
+        ei = self.force_i.e
 
-        # Si las excentricidades son suficientemente iguales se considera la fuerza interna como la resistencia nominal
-        # para la excentricidad de la carga
-        if np.isclose(ee, ei, rtol=0.01):
-            return ForceExt(self.force_i, strain_steel)
+        iteration += 1
+        logger.debug("%d (%f): [%f ; %f]", iteration, spp_mid, strain_concrete, strain_steel)
 
-        # Si no son iguales las excentricidades y se alcanzó el límite de interacciones se cancela el procedimiento
-        if kwargs["iteration"] > kwargs.get('max_iterations', 200):
-            logger.warning(
-                "Se alcanzó el número de iteraciones máximas con el plano %f ; %f",
-                strain_concrete, strain_steel
+        # Si las excentricidades no son suficientemente iguales se continúa la iteración
+        if not np.isclose(ee, ei, rtol=0.01):
+
+            # Si se alcanzó el límite de iteraciones se cancela el proceso
+            if iteration > max_iterations:
+                logger.warning(
+                    "Se alcanzó el número de iteraciones máximas con el plano %f ; %f",
+                    strain_concrete, strain_steel
+                )
+                raise StopIteration
+
+            # Se realiza una comparación doble debido a la discontinuidad de la función para determinar si el parámetro
+            # medio se utilizará como límite superior o inferior en la siguiente iteración
+            if ee < 0 and (ei < ee or ei > 0) or ee >= 0 and (ee >= ei >= 0):
+                spp_sup = spp_mid
+            else:
+                spp_inf = spp_mid
+
+            self.set_limit_plane_by_eccentricity(
+                ee, theta_me, spp_inf=spp_inf, spp_sup=spp_sup, iteration=iteration, max_iterations=max_iterations
             )
-            raise StopIteration
 
-        if ee < 0 and (ei < ee or ei > 0) or ee >= 0 and (ee >= ei >= 0):
-            kwargs['spp_sup'] = spp_mid
-        else:
-            kwargs['spp_inf'] = spp_mid
-
-        return self.set_limit_plane_by_eccentricity(ee, theta_me=theta_me, **kwargs)
-
-    def get_forces(self, theta_me=None, number=20) -> List[ForceExt]:
+    def get_forces(self, theta_me=0, number=20) -> List[Force]:
         """
             Obtiene una lista de fuerzas sobre las curvas de interacción que representan la resistencia
-            nominal sobre una línea de fuerzas con la misma excentricidad. Se puede especificar explícitamente el
+            nominal para distintas excentricidades. Se puede especificar explícitamente el
             ángulo que determina el meridiano sobre el que se construirá el diagrama o se puede indicar en forma
-            implícita a través de una fuerza externa.
+            implícita a través de una fuerza externa sobre la sección.
 
         @param theta_me: Un ángulo positivo medido en sentido antihorario desde el eje positivo Mz que representa la
         inclinación del momento resultante [radianes]
@@ -300,12 +324,9 @@ class ReinforcementConcreteSection:
         """
         forces = []
         self.build()
-        for ee in [-0.1, -0.2, -0.3]:
-            try:
-                force = self.set_limit_plane_by_eccentricity(theta_me=theta_me, ee=ee)
-                forces.append(force)
-            except StopIteration:
-                logger.warning("Se alcanzó el limite de iteraciones")
+        for value in range(number+1):
+            self.set_limit_plane_by_strains(*self.get_limits_strain(value / number), theta_me)
+            forces.append(self.force_i)
 
         return forces
 
@@ -318,7 +339,7 @@ class ReinforcementConcreteSection:
         delta_strain = 0.0002
 
         while strain_concrete <= 0.005:
-            self.set_limit_plane_by_strains(strain_concrete, strain_steel, theta_me=theta_me)
+            self.set_limit_plane_by_strains(strain_concrete, strain_steel, theta_me)
 
             M = np.linalg.norm(self.force_i.M) * 1e-6
             N = self.force_i.N * 1e-3

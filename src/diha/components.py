@@ -15,38 +15,10 @@ class Force:
         self.Mz = Mz
         self.M = np.array([0, My, Mz])
         self._theta_M = None
-
-    def clean(self):
-        self.N = 0
-        self.My = 0
-        self.Mz = 0
+        self._e = None
 
     def magnitude(self):
         return math.sqrt(self.N ** 2 + self.My ** 2 + self.Mz ** 2)
-
-    @property
-    def e(self):
-
-        if self.N != 0:
-            ey = -self.Mz / self.N
-            ez = self.My / self.N
-
-        else:
-            if self.Mz == 0:
-                ey = 0
-            elif self.Mz > 0:
-                ey = -np.inf
-            else:
-                ey = np.inf
-
-            if self.My == 0:
-                ez = 0
-            elif self.My > 0:
-                ez = np.inf
-            else:
-                ez = -np.inf
-
-        return np.array([0, ey, ez])
 
     @property
     def theta_M(self):
@@ -54,6 +26,12 @@ class Force:
             if np.isclose(0, np.linalg.norm(self.N), atol=1e-6):
                 self._theta_M = calc_angle_yz(np.array([0, 0, 1]), self.M)
         return self._theta_M
+
+    @property
+    def e(self):
+        if not self._e:
+            self._e = np.linalg.norm(self.M) / self.N if self.N != 0 else np.inf
+        return self._e
 
     def __lt__(self, other):
         if not isinstance(other, Force):
@@ -138,13 +116,13 @@ class StrainPlane:
     def __init__(self, theta=0, kappa=0, xo=0):
         super().__init__()
 
-        # Angulo entre el vector nn (eje neutro) y el eje z positivo
+        # Angulo entre el vector nn (eje neutro) y el eje "z" positivo
         self._theta = theta
 
         # Escalar que define la máxima pendiente del plano de deformaciones (curvatura)
         self._kappa = kappa
 
-        # Escalar que define la coordenada del eje x donde se intersecta con el plano
+        # Escalar que define la coordenada del eje "x" donde se intersecta con el plano
         self._xo = xo
 
         # Vector unitario normal al plano de deformaciones
@@ -246,9 +224,9 @@ class StrainPlane:
 
 class Stirrups:
 
-    def __init__(self, type=1, number=None, diam=None, sep=None):
+    def __init__(self, stirrup_type=1, number=None, diam=None, sep=None):
         super().__init__()
-        self.type = type
+        self.stirrup_type = stirrup_type
         self.number = number
         self.diam = diam
         self.sep = sep

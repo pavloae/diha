@@ -97,7 +97,7 @@ class GroupFiberStatus:
 
     def update(self, fibers: List[Fiber]):
 
-        self.force.clean()
+        self.force = Force()
 
         for fiber in fibers:
             self.force += fiber.force

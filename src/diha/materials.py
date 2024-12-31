@@ -75,7 +75,7 @@ class ConcreteMaterial(Material):
 
     def get_stress(self, strain):
         """
-            La tensión en el hormigón se adopta igual a 0,85 f’c , y se supone
+            La tensión en el hormigón se adopta igual a 0,85 f’c, y se supone
             uniformemente distribuida en una zona de compresión equivalente, limitada por los
             extremos de la sección transversal, y por una línea recta paralela al eje neutro, a una
             distancia a = β1 · c, a partir de la fibra comprimida con deformación máxima.
