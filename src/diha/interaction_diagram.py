@@ -212,10 +212,9 @@ class ReinforcementConcreteSection:
             self.strain_plane.xo = xo
             self.analyze()
 
-            theta_mi = self.force_i.theta_M or theta_me
-
-            if theta_mi is None:
-                return True
+            # Si la fuerza es de tracción o compresión pura y no se puede definir un ángulo se asigna el del plano de
+            # deformación
+            theta_mi = self.force_i.theta_M or self.strain_plane.theta
 
             return np.isclose(theta_me, theta_mi, rtol=1.e-5, atol=1.e-8)
 
@@ -330,36 +329,21 @@ class ReinforcementConcreteSection:
 
         return forces
 
-    def plot_diagram_2d(self, theta_me=0):
+    def plot_diagram_2d(self, theta_me=0, points=42):
         nominal = []
         design = []
 
-        strain_concrete = -0.003
-        strain_steel = -0.003
-        delta_strain = 0.0002
+        for val in range(points + 1):
+            strain_concrete, strain_steel = self.get_limits_strain(val / points)
 
-        while strain_concrete <= 0.005:
             self.set_limit_plane_by_strains(strain_concrete, strain_steel, theta_me)
 
-            M = np.linalg.norm(self.force_i.M) * 1e-6
-            N = self.force_i.N * 1e-3
-
-            if np.isclose(strain_steel, 0.002, atol=delta_strain / 2):
-                plt.plot([0, M], [0, N], linestyle='--', color='gray')
-
-            if (np.isclose(strain_steel, 0.005, atol=delta_strain / 2) and
-                    np.isclose(strain_concrete, -0.003, atol=delta_strain / 2)):
-                plt.plot([0, M], [0, N], linestyle='--', color='gray')
+            M, N = np.linalg.norm(self.force_i.M) * 1e-6, self.force_i.N * 1e-3
 
             nominal.append([M, N])
 
             factor = self.phi(strain_steel)
             design.append([factor * M, max(self.Pn_max(factor), factor * N)])
-
-            if strain_steel >= 0.005:
-                strain_concrete += delta_strain
-            else:
-                strain_steel += delta_strain
 
         x, y = zip(*nominal)
         plt.plot(x, y, marker='', linestyle='-', color='g', label='Nn-Mn')

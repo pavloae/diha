@@ -32,7 +32,7 @@ def calc_angle_yz(u, v):
     norm_v = np.linalg.norm(vp)
 
     if norm_u == 0 or norm_v == 0:
-        return 0.0
+        raise ValueError('Los vectores deben tener una componente en el plano yz no nula')
 
     un = up / norm_u
     vn = vp / norm_v
@@ -40,3 +40,6 @@ def calc_angle_yz(u, v):
     theta = np.arccos(np.dot(un, vn))
 
     return float(theta if np.cross(un, vn)[0] >= 0 else 2 * np.pi - theta)
+
+def norm_ang(ang):
+    return ang % (2 * np.pi)

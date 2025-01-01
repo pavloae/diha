@@ -22,8 +22,12 @@ class Force:
 
     @property
     def theta_M(self):
-        if self._theta_M is None:
-            if np.isclose(0, np.linalg.norm(self.N), atol=1e-6):
+        """
+            Ángulo que forma el vector de momentos con respecto al eje "z" positivo medido en sentido antihorario.
+        @return:
+        """
+        if not self._theta_M:
+            if not np.isclose(0, np.linalg.norm(self.M), atol=1e-6):
                 self._theta_M = calc_angle_yz(np.array([0, 0, 1]), self.M)
         return self._theta_M
 
