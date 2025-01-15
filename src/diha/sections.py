@@ -1,5 +1,5 @@
 from .fibers import RectFiber, RoundFiber
-from .interaction_diagram import ReinforcementConcreteSection
+from .calc import ReinforcementConcreteSection
 from .materials import ConcreteMaterial
 
 
@@ -23,6 +23,11 @@ class RectangularRCSection(ReinforcementConcreteSection):
 
         self.div_y = div_y
         self.div_z = div_z
+
+    def increase_resolution(self, factor):
+        self.div_y = self.div_y * factor
+        self.div_z = self.div_z * factor
+        self.build(force=True)
 
     def _build_concrete_fibers(self):
 

@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -10,29 +10,10 @@ from .materials import SteelMaterial, ConcreteMaterial
 
 logger = logging.getLogger(__name__)
 
-class ConcreteStrainExceededError(Exception):
-    """Excepción lanzada cuando las deformaciones en el hormigón exceden los límites permitidos."""
-    def __init__(self, strain, limit, message=None):
-        self.strain = strain
-        self.limit = limit
-        if message is None:
-            message = f"Strain exceeded: {strain:.2f} (Limit: {limit:.2f} MPa)"
-        super().__init__(message)
-
-
-class SteelStrainExceededError(Exception):
-    """Excepción lanzada cuando las deformaciones en el acero exceden los límites permitidos."""
-    def __init__(self, strain, limit, message=None):
-        self.strain = strain
-        self.limit = limit
-        if message is None:
-            message = f"Strain exceeded: {strain:.2f} (Limit: {limit:.2f} MPa)"
-        super().__init__(message)
-
 
 class ReinforcementConcreteSection:
 
-    def __init__(self, concrete, steel, bars, stirrups=None, iterations=10):
+    def __init__(self, concrete, steel, bars, stirrups=None, iterations=50):
 
         super().__init__()
 
@@ -47,9 +28,9 @@ class ReinforcementConcreteSection:
         self._concrete_fibers: List[RectFiber] = []
         self.stirrups = stirrups
 
-        self.force_e = None
+        self.force_e: Optional[Force] = None
         self.theta_me = None
-        self.force_i = Force()
+        self.force_i: Optional[Force] = Force()
         self.theta_mi = None
 
         self.concrete_status = GroupFiberStatus()
@@ -60,9 +41,30 @@ class ReinforcementConcreteSection:
         self._Ag = None
         self._As = None
 
+        self._pn_compression = None
+        self._pn_tension = None
+
         self._built = False
 
+    def clean(self):
+        self.force_e: Optional[Force] = None
+        self.theta_me = None
+        self.force_i: Optional[Force] = Force()
+        self.theta_mi = None
+
+        self.concrete_status = GroupFiberStatus()
+        self.steel_status = GroupFiberStatus()
+
+        self._Ag = None
+        self._As = None
+
+        self._pn_compression = None
+        self._pn_tension = None
+
     def _build_concrete_fibers(self):
+        raise NotImplementedError
+
+    def increase_resolution(self, factor):
         raise NotImplementedError
 
     def build(self, force=False):
@@ -120,10 +122,10 @@ class ReinforcementConcreteSection:
 
         for fiber in fibers:
 
-            fiber.distance_nn = strain_plane.get_dist_calc(fiber.point)
+            fiber.distance_nn = strain_plane.get_dist_nn(fiber.point)
             fiber.distance_nn_cg = strain_plane.get_dist_nn_cg(fiber.point)
 
-            if not farthest_fiber or (compression == fiber.distance_nn <= farthest_fiber.distance_nn):
+            if not farthest_fiber or (compression == (fiber.distance_nn >= farthest_fiber.distance_nn)):
                 farthest_fiber = fiber
 
         return farthest_fiber
@@ -136,13 +138,25 @@ class ReinforcementConcreteSection:
             return np.inf
         return 0
 
-    def Pn_max(self, strain_steel):
+    def Pd_max(self, strain_steel):
 
         phi = self.phi(strain_steel)
 
         coef = 0.85 if self.stirrups and self.stirrups.stirrup_type == 2 else 0.80
 
         return -coef * phi * (0.85 * self.concrete.fpc * (self.Ag - self.As) + self.steel.fy * self.As) * 1e-3
+
+    @property
+    def pn_compression(self):
+        if not self._pn_compression:
+            self._pn_compression = -0.85 * self.concrete.fpc * (self.Ag - self.As) - self.steel.fy * self.As
+        return self._pn_compression
+
+    @property
+    def pn_tension(self):
+        if not self._pn_tension:
+            self._pn_tension = self.steel.fy * self.As
+        return self._pn_tension
 
     def analyze(self):
 
@@ -173,7 +187,7 @@ class ReinforcementConcreteSection:
         strain_concrete = self.concrete.limit_strain if t < domain else t - domain + self.concrete.limit_strain
         strain_steel = t + self.concrete.limit_strain if t < domain else self.steel.limit_strain
 
-        return strain_concrete, strain_steel
+        return float(strain_concrete), float(strain_steel)
 
     def _get_params(self, strain_concrete, strain_steel):
         ffc = self.get_farthest_fiber(self.concrete_fibers, self.strain_plane, compression=True)  # Fibra más alejada de hormigón
@@ -186,16 +200,16 @@ class ReinforcementConcreteSection:
 
         return curvature_required, strain_cg_required
 
-    def set_limit_plane_by_strains(self, strain_concrete, strain_steel, theta_me=0, max_iterations=None):
+    def set_limit_plane_by_strains(self, strain_concrete, strain_steel, theta_me, max_iterations=None):
         """
             Configura un plano límite en la sección de forma tal que la fibra más comprimida del hormigón y la más
             traccionada del acero coincidan con los valores especificados y el ángulo entre el vector resultante de los
-            momentos internos y el vector positivo del eje "z" coincida con el ángulo especificado.
+            momentos internos y el vector positivo del eje "z" coincida con el ángulo especificado o difieran en pi radianes
 
-        @param strain_steel: Deformación específica de la fibra de hormigón más comprimida o menos traccionada.
         @param strain_concrete: Deformación específica de la fibra de acero más traccionada o menos comprimida.
+        @param strain_steel: Deformación específica de la fibra de hormigón más comprimida o menos traccionada.
         @param theta_me: Ángulo entre la resultante de los momentos y el eje "z" positivo. En radianes.
-        @param max_iterations:
+        @param max_iterations: El número máximo de iteraciones a considerar (opcional)
         """
 
         max_iterations = max_iterations or self.max_iterations or 200
@@ -212,11 +226,15 @@ class ReinforcementConcreteSection:
             self.strain_plane.xo = xo
             self.analyze()
 
+            # Si el plano de deformación no tiene pendiente no hay ángulo para comparar y se detiene el proceso
+            if strain_steel == strain_concrete:
+                return True
+
             # Si la fuerza es de tracción o compresión pura y no se puede definir un ángulo se asigna el del plano de
             # deformación
             theta_mi = self.force_i.theta_M or self.strain_plane.theta
 
-            return np.isclose(theta_me, theta_mi, rtol=1.e-5, atol=1.e-8)
+            return np.isclose(0.0, (theta_me - theta_mi) % np.pi, rtol=1.e-5, atol=1.e-8)
 
         iteration = 0
         while not condition():
@@ -225,10 +243,9 @@ class ReinforcementConcreteSection:
             if iteration >= max_iterations:
                 raise StopIteration
 
-            delta_theta = theta_me - self.force_i.theta_M
-            self.strain_plane.theta += delta_theta
+            self.strain_plane.theta = self.force_i.theta_M
 
-    def set_limit_plane_by_eccentricity(self, ee, theta_me, spp_inf=0.0, spp_sup=1.0, iteration=0, max_iterations=200):
+    def set_limit_plane_by_eccentricity(self, ee, theta_me, spp_inf=0.0, spp_sup=1.0, iteration=0, max_iterations=100):
         """
             Configura un plano límite para la sección en donde la resultante de las fuerzas internas tenga una
             excentricidad igual a la indicada y el vector de momentos forme un ángulo con el eje "z" igual al indicado.
@@ -275,39 +292,56 @@ class ReinforcementConcreteSection:
 
         # Se genera un punto intermedio entre los planos de deformación parametrizados para aplicar el método
         # iterativo por bisección.
-        spp_mid = (spp_inf + spp_sup) / 2
+        spp_mid = (spp_inf + spp_sup) / 2.0
 
         # Se obtienen las deformaciones específicas en función de la parametrización.
         strain_concrete, strain_steel = self.get_limits_strain(spp_mid)
 
-        # Se aplica el plano por deformaciones y se obtiene la excentricidad de las fuerzas internas.
-        self.set_limit_plane_by_strains(strain_concrete, strain_steel, theta_me)
-        ei = self.force_i.e
-
-        iteration += 1
         logger.debug("%d (%f): [%f ; %f]", iteration, spp_mid, strain_concrete, strain_steel)
 
-        # Si las excentricidades no son suficientemente iguales se continúa la iteración
-        if not np.isclose(ee, ei, rtol=0.01):
+        # Se aplica el plano por deformaciones y se obtiene la excentricidad de las fuerzas internas.
+        self.set_limit_plane_by_strains(strain_concrete, strain_steel, theta_me)
 
-            # Si se alcanzó el límite de iteraciones se cancela el proceso
-            if iteration > max_iterations:
-                logger.warning(
-                    "Se alcanzó el número de iteraciones máximas con el plano %f ; %f",
-                    strain_concrete, strain_steel
-                )
-                raise StopIteration
+        # Si la excentricidad es infinita estamos en un caso de flexión pura
+        ei = self.force_i.e
+        if ee == np.inf or ee == -np.inf:
+            threshold = min(self.pn_tension, -self.pn_compression) * 0.01
+            condition = np.isclose(float(self.force_i.N), 0.0, atol=threshold)
+        else:
+            condition = np.isclose(ee, ei, rtol=0.01)
 
-            # Se realiza una comparación doble debido a la discontinuidad de la función para determinar si el parámetro
-            # medio se utilizará como límite superior o inferior en la siguiente iteración
-            if ee < 0 and (ei < ee or ei > 0) or ee >= 0 and (ee >= ei >= 0):
-                spp_sup = spp_mid
-            else:
-                spp_inf = spp_mid
+        # Si coinciden las excentricidades se termina la iteración
+        if condition:
+            return
 
-            self.set_limit_plane_by_eccentricity(
-                ee, theta_me, spp_inf=spp_inf, spp_sup=spp_sup, iteration=iteration, max_iterations=max_iterations
+        iteration += 1
+
+        # Si se alcanzó el límite de iteraciones se cancela el proceso
+        if iteration > max_iterations:
+            logger.warning(
+                "Se alcanzó el número de iteraciones máximas con el plano %f ; %f",
+                strain_concrete, strain_steel
             )
+            raise StopIteration
+
+        # Si no se encontró el equilibrio al acercarse los límites superior e inferior se aumenta la resolución
+        if np.isclose(spp_inf, spp_sup):
+            spp_inf = spp_inf * 0.2
+            spp_sup = 0.8 * spp_sup + 0.2
+            self.increase_resolution(2)
+            logger.debug("Duplicación de la resolución")
+
+        # Se realiza una comparación doble debido a la discontinuidad de la función para determinar si el parámetro
+        # medio se utilizará como límite superior o inferior en la siguiente iteración
+        elif ee < 0 and (ei < ee or ei > 0) or ee > 0 and (ee >= ei >= 0):
+            spp_sup = spp_mid
+
+        else:
+            spp_inf = spp_mid
+
+        self.set_limit_plane_by_eccentricity(
+            ee, theta_me, spp_inf=spp_inf, spp_sup=spp_sup, iteration=iteration, max_iterations=max_iterations
+        )
 
     def get_forces(self, theta_me=0, number=20) -> List[Force]:
         """
@@ -343,7 +377,7 @@ class ReinforcementConcreteSection:
             nominal.append([M, N])
 
             factor = self.phi(strain_steel)
-            design.append([factor * M, max(self.Pn_max(factor), factor * N)])
+            design.append([factor * M, max(self.Pd_max(factor), factor * N)])
 
         x, y = zip(*nominal)
         plt.plot(x, y, marker='', linestyle='-', color='g', label='Nn-Mn')
@@ -388,3 +422,42 @@ class ReinforcementConcreteSection:
         plt.grid(False)
         plt.autoscale()
         plt.show()
+
+    def get_nominal_force(self):
+
+        if not self.force_e:
+            raise ValueError("Sede especificar una fuerza externa aplicada a la sessión")
+
+        ee = self.force_e.e
+        theta_me = self.force_e.theta_M or 0
+
+        if ee != 0:
+            self.set_limit_plane_by_eccentricity(ee, theta_me)
+        elif self.force_e.N < 0:
+            self.set_limit_plane_by_strains(self.concrete.limit_strain, self.concrete.limit_strain, theta_me)
+        else:
+            self.set_limit_plane_by_strains(self.steel.limit_strain, self.steel.limit_strain, theta_me)
+
+        return self.force_i
+
+    def _get_max_strain_steel(self):
+        max_strain = None
+        for fiber in self.steel_fibers:
+            if not max_strain or fiber.strain > max_strain:
+                max_strain = fiber.strain
+        return max_strain
+
+    def get_design_force(self):
+
+        nominal = self.get_nominal_force()
+
+        max_strain_steel = self._get_max_strain_steel()
+
+        design = nominal * self.phi(max_strain_steel)
+
+        if self.force_e.N < 0:
+            Pd_max = self.Pd_max(max_strain_steel) * 1e3
+            if design.N < Pd_max:
+                return design * (Pd_max / design.N)
+
+        return design

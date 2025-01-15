@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-from diha.utils import calc_angle_yz
+from diha.utils import calc_angle_yz, norm_ang
 
 
 class Force:
@@ -24,7 +24,7 @@ class Force:
     def theta_M(self):
         """
             Ángulo que forma el vector de momentos con respecto al eje "z" positivo medido en sentido antihorario.
-        @return:
+        @return: Un real entre 0 y 2 pi o None si no existe momento.
         """
         if not self._theta_M:
             if not np.isclose(0, np.linalg.norm(self.M), atol=1e-6):
@@ -118,6 +118,14 @@ class ForceExt(Force):
 class StrainPlane:
 
     def __init__(self, theta=0, kappa=0, xo=0):
+        """
+            Define un plano de deformaciones
+
+        @param theta: Ángulo que forma el eje positivo de giro del plano respecto al eje "z" positivo medido en sentido
+        antihorario. Un valor real entre 0 y 2 pi.
+        @param kappa: Pendiente del plano de deformaciones. Valor real positivo entre 0 (horizontal) y pi/2 (vertical).
+        @param xo: Desplazamiento del plano de deformaciones del centro de coordenadas en sentido vertical.
+        """
         super().__init__()
 
         # Angulo entre el vector nn (eje neutro) y el eje "z" positivo
@@ -147,7 +155,7 @@ class StrainPlane:
         self._nn = None
         self._n = None
         self._r = None
-        self._theta = theta
+        self._theta = norm_ang(theta)
 
     @property
     def kappa(self):
@@ -172,8 +180,8 @@ class StrainPlane:
     def n(self):
         if self._n is None:
             alpha = np.arctan(self.kappa)
-            nxy = np.sin(alpha)
-            self._n = np.array([np.cos(alpha), nxy * np.cos(self.theta), nxy * np.sin(self.theta)])
+            nyz = np.sin(alpha)
+            self._n = np.array([np.cos(alpha), nyz * np.cos(self.theta), nyz * np.sin(self.theta)])
         return self._n
 
     @property
@@ -189,25 +197,31 @@ class StrainPlane:
             p = np.cross(self.n, self.nn)
             if p[0] != 0:
                 factor = self.xo / p[0]
-                self._r = np.array([self.xo, 0, 0]) - factor * p
+                pe = factor * p
+                self._r = np.array([self.xo, 0, 0]) - pe
             else:
                 self._r = np.array([0, 0, 0])
         return self._r
 
     def get_dist_nn_cg(self, point):
-        return np.cross(self.nn, point)[0]
+        """
+            Calcula la distancia que hay entre el punto y el eje baricéntrico paralelo al eje neutro.
+        @param point:
+        @return:
+        """
+        return np.cross(point, self.nn)[0]
 
-    def get_dist_calc(self, point):
+    def get_dist_nn(self, point):
         """
             Calcula la distancia de que hay entre el punto y el eje neutro de la sección, o el eje baricéntrico en caso
             de que el plano sea horizontal. La distancia se toma positiva si la fibra se encuentra del lado del eje
-            neutro donde una curvatura positiva genera tracción.
+            neutro donde una curvatura positiva genera compresión.
 
         @param point:
         @return:
         """
         s = point - self.r
-        return np.cross(self.nn, s)[0]
+        return np.cross(s, self.nn)[0]
 
     def get_strain(self, point):
         """
@@ -217,7 +231,7 @@ class StrainPlane:
         @return: La deformación específica. Positiva para estiramiento y negativa para acortamiento.
         """
 
-        return self.xo + self.kappa * self.get_dist_nn_cg(point)
+        return self.xo - self.kappa * self.get_dist_nn_cg(point)
 
     def __repr__(self):
         return f"StrainPlane(theta={self.theta}, kappa={self.kappa}, xo={self.xo})"

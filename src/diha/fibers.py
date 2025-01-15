@@ -73,7 +73,7 @@ class RectFiber(Fiber):
     def plot(self, ax):
         y0, z0 = self.center[0] - self.dy / 2, self.center[1] - self.dz / 2
         rect = patches.Rectangle(
-            (z0, y0), self.dy, self.dz, edgecolor="gray", facecolor="lightblue", alpha=0.5
+            (z0, y0), self.dz, self.dy, edgecolor="gray", facecolor="lightblue", alpha=0.5
         )
         ax.add_patch(rect)
 
