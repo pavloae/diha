@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt, patches
 
 from .components import Force
+from .geometry import Point2D
 from .materials import Material
 
 
@@ -12,7 +13,7 @@ class Fiber:
     def __init__(self, material: Material, center, area):
         super().__init__()
         self.material: Material = material
-        self.center = center
+        self.center = Point2D(*center)
 
         self.y = center[0]
         self.z = center[1]
