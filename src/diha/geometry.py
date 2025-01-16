@@ -14,6 +14,9 @@ class Point2D:
     def __repr__(self):
         return f"Point(y={self.y}, z={self.z})"
 
+    def __str__(self):
+        return f"[{self.y}, {self.z}]"
+
 
 class Point3D(Point2D):
 
@@ -33,3 +36,7 @@ class Point3D(Point2D):
 
     def __repr__(self):
         return f"Point(x={self.x}, y={self.y}, z={self.z})"
+
+    def __str__(self):
+        return f"[{self.x}, {self.y}, {self.z}]"
+
