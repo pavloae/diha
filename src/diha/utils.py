@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 
@@ -43,3 +45,7 @@ def calc_angle_yz(u, v):
 
 def norm_ang(ang):
     return ang % (2 * np.pi)
+
+def is_same_direction(u, v):
+    result = calc_angle_yz(u, v) % np.pi
+    return math.isclose(0.0, result, abs_tol=1e-6) or math.isclose(result, np.pi, abs_tol=1e-6)
