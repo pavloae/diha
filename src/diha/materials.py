@@ -8,7 +8,7 @@ class Material:
             Dada una deformación específica se devuelve la tensión correspondiente según la relación constitutiva
             del material.
 
-        :param strain:
+        :param strain: Tensión del material, en MPa.
         """
         raise NotImplementedError
 
@@ -16,12 +16,23 @@ class Material:
 class SteelMaterial(Material):
 
     def __init__(self, fy=420, E=200000):
+        """
+            Clase para definir la relación constitutiva tensión-deformación en el acero.
+
+        :param fy: Tensión de fluencia del acero, en MPa
+        :param E: Módulo de elasticidad del acero, en MPa
+        """
         super().__init__()
         self.fy = fy
         self.E = E
         self.limit_strain = 0.005
 
     def get_stress(self, strain):
+        """
+            Para una deformación específica devuelve la tensión correspondiente del acero.
+        @param strain: Una deformación específica.
+        @return: El valor de la tensión correspondiente del acero, en MPa.
+        """
         if abs(strain * self.E) < self.fy:
             return strain * self.E
         else:
@@ -34,7 +45,7 @@ class ConcreteMaterial(Material):
         """
             Clase para definir la relación constitutiva tensión-deformación en el hormigón.
 
-        :param fpc: Resistencia característica a compresión del hormigón.
+        :param fpc: Resistencia característica a compresión del hormigón, en MPa
         """
         super().__init__()
         self.fpc = fpc
@@ -63,12 +74,20 @@ class ConcreteMaterial(Material):
 
     @property
     def epsilon_t(self):
+        """
+            Deformación del hormigón a partir de la cual se consideran que colabora a compresión.
+        @return: El valor de la deformación especifica.
+        """
         if not self._epsilon_t:
             self._epsilon_t = (1 - self.beta1) * self.epsilon_lim
         return self._epsilon_t
 
     @property
     def min_stress(self):
+        """
+            Tensión máxima de compresión (negativa) que se considera para el bloque de tensiones del hormigón.
+        @return: El valor de la tensión de compresión, en MPa.
+        """
         if not self._min_stress:
             self._min_stress = -.85 * self.fpc
         return self._min_stress
