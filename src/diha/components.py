@@ -109,7 +109,9 @@ class StrainPlane:
 
     def __init__(self, theta=0, kappa=0, xo=0):
         """
-            Define un plano de deformaciones
+            Define un plano de deformaciones que puede desplazarse sobre el eje "x" que define el eje de la barra,
+            girar alrededor del mismo un ángulo theta entre 0 y 2 pi, e inclinarse girando sobre un eje horizontal
+            paralelo al eje neutro de la sección.
 
         @param theta: Ángulo que forma el eje positivo de giro del plano respecto al eje "z" positivo medido en sentido
         antihorario. Un valor real entre 0 y 2 pi.
@@ -227,7 +229,7 @@ class StrainPlane:
         return f"StrainPlane(theta={self.theta}, kappa={self.kappa}, xo={self.xo})"
 
     def __str__(self):
-        return f"theta={self.theta:8.2f} - \u03BA={1000*self.kappa:.5f}\u2030 - xo={1000*self.xo:.5f}\u2030"
+        return f"theta = {self.theta:3.2f} rad - \u03BA = {100 * self.kappa:.3f} % - xo = {1000 * self.xo:.3f} \u2030"
 
 
 class Stirrups:

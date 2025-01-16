@@ -77,6 +77,18 @@ class TestStrainPlane(TestCase):
             np.array([0, 1, 0]),
         ]
 
+    def test_str(self):
+
+        self.assertEqual(
+            str(StrainPlane()),
+            "theta = 0.00 rad - κ = 0.000 % - xo = 0.000 ‰"
+        )
+
+        self.assertEqual(
+            str(StrainPlane(theta=np.pi / 2, kappa=0.01, xo=0.005)),
+            "theta = 1.57 rad - κ = 1.000 % - xo = 5.000 ‰"
+        )
+
     def test_n(self):
 
         sp = StrainPlane(theta=0, kappa=0, xo=0)
