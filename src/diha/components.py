@@ -7,18 +7,31 @@ from diha.utils import calc_angle_yz, norm_ang
 
 class Force:
 
-    tol = 1e-6  # Tolerancia
+    # Por defecto se mantiene una precisión de 1N sin importar la magnitud de la fuerza
+    atol = 1e-3  # Tolerancia absoluta (1 N ó 1 Nm)
+    rtol = 0.0
 
-    def __init__(self, N=0, My=0, Mz=0):
+    def __init__(self, N=0.0, My=0.0, Mz=0.0):
+        """
+            Representación de una fuerza para el análisis de secciones de hormigón armado sometidas a esfuerzos normales
+            de flexión compuesta siguiendo los lineamientos de CIRSOC 201. El eje "x" está dirigido hacia afuera del
+            plano, el eje y hacia arriba y el eje z hacia la izquierda, utilizando la regla de la mano derecha.
+
+        @param N: Fuerza axil de compresión (negativa) o tracción (positiva), en kN.
+        @param My: Momento flector alrededor del eje "y", en kNm.
+        @param Mz: Momento flector alrededor del eje "z", en kNm.
+        """
         self.N = N
         self.My = My
         self.Mz = Mz
-        self.M = np.array([0, My, Mz])
-        self._theta_M = None
-        self._e = None
 
-    def magnitude(self):
-        return math.sqrt(self.N ** 2 + self.My ** 2 + self.Mz ** 2)
+    @property
+    def M(self):
+        return np.array([0, self.My, self.Mz])
+
+    @property
+    def mod_M(self):
+        return np.linalg.norm(self.M)
 
     @property
     def theta_M(self):
@@ -26,36 +39,20 @@ class Force:
             Ángulo que forma el vector de momentos con respecto al eje "z" positivo medido en sentido antihorario.
         @return: Un real entre 0 y 2 pi o None si no existe momento.
         """
-        if not self._theta_M:
-            if not np.isclose(0, np.linalg.norm(self.M), atol=1e-6):
-                self._theta_M = calc_angle_yz(np.array([0, 0, 1]), self.M)
-        return self._theta_M
+        if not math.isclose(0.0, self.mod_M, abs_tol=self.atol, rel_tol=self.rtol):
+            return calc_angle_yz(np.array([0, 0, 1]), self.M)
+        return None
 
     @property
     def e(self):
-        if not self._e:
-            self._e = np.linalg.norm(self.M) / self.N if self.N != 0 else np.inf
-        return self._e
 
-    def __lt__(self, other):
-        if not isinstance(other, Force):
-            return NotImplemented
-        return self.magnitude() < other.magnitude()
+        if not math.isclose(0.0, self.N, abs_tol=self.atol, rel_tol=self.rtol):
+            return self.mod_M / self.N
 
-    def __le__(self, other):
-        if not isinstance(other, Force):
-            return NotImplemented
-        return self.magnitude() <= other.magnitude()
+        if math.isclose(0.0, self.mod_M, abs_tol=self.atol, rel_tol=self.rtol):
+            raise ArithmeticError("No se puede determinar una excentricidad válida.")
 
-    def __gt__(self, other):
-        if not isinstance(other, Force):
-            return NotImplemented
-        return self.magnitude() > other.magnitude()
-
-    def __ge__(self, other):
-        if not isinstance(other, Force):
-            return NotImplemented
-        return self.magnitude() >= other.magnitude()
+        return np.inf
 
     def __add__(self, other):
         if not isinstance(other, Force):
@@ -87,16 +84,16 @@ class Force:
         return f"Force(N={self.N}, My={self.My}, Mz={self.Mz})"
 
     def __str__(self):
-        return f"N = {self.N * 1e-3:5.0f} kN - My = {self.My * 1e-6:5.0f} kNm - Mz = {self.Mz * 1e-6:5.0f} kNm"
+        return f"N = {self.N:8.1f} kN - My = {self.My:7.1f} kNm - Mz = {self.Mz:7.1f} kNm"
 
     def __eq__(self, other):
         if not isinstance(other, Force):
             return NotImplemented
 
         return (
-                math.isclose(self.N, other.N, abs_tol=self.tol) and
-                math.isclose(self.My, other.My, abs_tol=self.tol) and
-                math.isclose(self.Mz, other.Mz, abs_tol=self.tol)
+                math.isclose(self.N, other.N, abs_tol=self.atol, rel_tol=self.rtol) and
+                math.isclose(self.My, other.My, abs_tol=self.atol, rel_tol=self.rtol) and
+                math.isclose(self.Mz, other.Mz, abs_tol=self.atol, rel_tol=self.rtol)
         )
 
     def __mul__(self, factor):
@@ -105,14 +102,7 @@ class Force:
         raise TypeError("El multiplicador debe ser un escalar (int o float)")
 
     def __rmul__(self, factor):
-        return self.__mul__(factor)  # Reutilizamos la lógica de __mul__
-
-
-class ForceExt(Force):
-
-    def __init__(self, force, strain_steel):
-        super().__init__(force.N, force.My, force.Mz)
-        self.strain_steel = strain_steel
+        return self.__mul__(factor)
 
 
 class StrainPlane:

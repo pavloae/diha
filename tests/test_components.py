@@ -2,8 +2,64 @@ from unittest import TestCase
 
 import numpy as np
 
-from diha.components import StrainPlane
+from diha.components import StrainPlane, Force
 
+class TestForce(TestCase):
+
+    def test_str(self):
+
+        self.assertEqual(
+            str(Force()),
+            "N =      0.0 kN - My =     0.0 kNm - Mz =     0.0 kNm"
+        )
+
+        self.assertEqual(
+            str(Force(N=-250.955, My=300.455, Mz=400.544)),
+            "N =   -251.0 kN - My =   300.5 kNm - Mz =   400.5 kNm"
+        )
+
+        self.assertEqual(
+            str(Force(N=-12345.955, My=3000.455, Mz=4000.544)),
+            "N = -12346.0 kN - My =  3000.5 kNm - Mz =  4000.5 kNm"
+        )
+
+    def test_theta_m(self):
+
+        self.assertAlmostEqual(0.0 * np.pi, Force(Mz=200).theta_M)
+        self.assertAlmostEqual(0.5 * np.pi, Force(My=-200).theta_M)
+        self.assertAlmostEqual(1.0 * np.pi, Force(Mz=-200).theta_M)
+        self.assertAlmostEqual(1.5 * np.pi, Force(My=200).theta_M)
+
+        self.assertAlmostEqual(1.75 * np.pi, Force(My=200, Mz=200).theta_M)
+        self.assertAlmostEqual(1.75 * np.pi, Force(N=200, My=200, Mz=200).theta_M)
+
+        self.assertIsNone(Force().theta_M)
+        self.assertIsNone(Force(N=200).theta_M)
+        self.assertIsNone(Force(N=200, My=0.001).theta_M)
+        self.assertIsNotNone(Force(N=200, My=0.0011).theta_M)
+
+    def test_e(self):
+
+        self.assertAlmostEqual(0.0, Force(N=200).e)
+        self.assertAlmostEqual(0.1, Force(N=200, Mz=20).e)
+        self.assertAlmostEqual(5.0, Force(N=100, My=400, Mz=300).e)
+
+        self.assertAlmostEqual(np.inf, Force(N=1e-3, My=400, Mz=300).e)
+        self.assertGreaterEqual(5e9, Force(N=1e-2, My=400, Mz=300).e)
+
+        self.assertRaises(ArithmeticError, lambda: Force().e)
+
+    def test_eq(self):
+        self.assertTrue(Force() == Force())
+        self.assertTrue(Force(N=0.0011) == Force(N=0.0009))
+        self.assertTrue(Force(N=100.0011) == Force(N=100.0009))
+        self.assertTrue(Force(N=100.0015) == Force(N=100.0005))
+
+        self.assertTrue(Force(N=0.0015) == Force(N=0.0025))
+        self.assertTrue(Force(N=0.0015) != Force(N=0.0026))
+
+        self.assertTrue(Force(N=10.0015) == Force(N=10.0025))
+        self.assertTrue(Force(N=10.0015) != Force(N=10.0026))
 
 class TestStrainPlane(TestCase):
 
@@ -390,3 +446,4 @@ class TestStrainPlane(TestCase):
             self.assertAlmostEqual(0.002, sp.get_strain(point))
         for point in [points[5]]:
             self.assertAlmostEqual(0.003, sp.get_strain(point))
+
