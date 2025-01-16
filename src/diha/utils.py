@@ -10,7 +10,7 @@ def calc_angle_yz(u, v):
 
     @param u: vector inicial
     @param v: vector final
-    @return: un ángulo en radianes entre [0, 2*pi) con su signo
+    @return: un ángulo en entre [0, 2*pi), en radianes
 
     Examples:
         >>> calc_angle_yz([1, 1, 0], [1, 1, 0])  # Vectores paralelos mismo sentido
@@ -22,9 +22,13 @@ def calc_angle_yz(u, v):
         >>> calc_angle_yz([1, 1, 0], [1, 0, -1]) # Giro horario 270°
         4.71238898038469
         >>> calc_angle_yz([0, 0, 0], [1, 1, 0]) # Vector nulo como u
-        0.0
+        Traceback (most recent call last):
+        ...
+        ValueError: Los vectores deben tener una componente en el plano yz no nula
         >>> calc_angle_yz([1, 1, 0], [0, 0, 0]) # Vector nulo como v
-        0.0
+        Traceback (most recent call last):
+        ...
+        ValueError: Los vectores deben tener una componente en el plano yz no nula
     """
 
     up = np.array([0, *u[1:]])
@@ -44,8 +48,19 @@ def calc_angle_yz(u, v):
     return float(theta if np.cross(un, vn)[0] >= 0 else 2 * np.pi - theta)
 
 def norm_ang(ang):
+    """
+        Normaliza un ángulo para que se encuentre en el rango [0, 2 pi)
+    @param ang: Ángulo a ser normalizado, en radianes
+    @return: Ángulo normalizado, en radianes
+    """
     return ang % (2 * np.pi)
 
 def is_same_direction(u, v):
+    """
+        Determina si dos vectores tienen la misma dirección.
+    @param u: Un vector inicial
+    @param v: Un vector final
+    @return: Un booleano: True si los vectores forman un ángulo de 0 o pi radianes, False en caso contrario.
+    """
     result = calc_angle_yz(u, v) % np.pi
     return math.isclose(0.0, result, abs_tol=1e-6) or math.isclose(result, np.pi, abs_tol=1e-6)
