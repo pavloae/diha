@@ -2,13 +2,14 @@ import math
 
 import numpy as np
 
+from diha.geometry import Point2D
 from diha.utils import calc_angle_yz, norm_ang
 
 
 class Force:
 
     # Por defecto se mantiene una precisión de 1N sin importar la magnitud de la fuerza
-    atol = 1e-3  # Tolerancia absoluta (1 N ó 1 Nm)
+    atol = 1e-3  # Tolerancia absoluta
     rtol = 0.0
 
     def __init__(self, N=0.0, My=0.0, Mz=0.0):
@@ -17,9 +18,9 @@ class Force:
             de flexión compuesta siguiendo los lineamientos de CIRSOC 201. El eje "x" está dirigido hacia afuera del
             plano, el eje y hacia arriba y el eje z hacia la izquierda, utilizando la regla de la mano derecha.
 
-        @param N: Fuerza axil de compresión (negativa) o tracción (positiva), en kN.
-        @param My: Momento flector alrededor del eje "y", en kNm.
-        @param Mz: Momento flector alrededor del eje "z", en kNm.
+        @param N: Fuerza axil de compresión (negativa) o tracción (positiva), en N.
+        @param My: Momento flector alrededor del eje "y", en Nmm.
+        @param Mz: Momento flector alrededor del eje "z", en Nmm.
         """
         self.N = N
         self.My = My
@@ -84,7 +85,7 @@ class Force:
         return f"Force(N={self.N}, My={self.My}, Mz={self.Mz})"
 
     def __str__(self):
-        return f"N = {self.N:8.1f} kN - My = {self.My:7.1f} kNm - Mz = {self.Mz:7.1f} kNm"
+        return f"N = {self.N:8.1f} - My = {self.My:7.1f} - Mz = {self.Mz:7.1f}"
 
     def __eq__(self, other):
         if not isinstance(other, Force):
@@ -198,9 +199,13 @@ class StrainPlane:
     def get_dist_nn_cg(self, point):
         """
             Calcula la distancia que hay entre el punto y el eje baricéntrico paralelo al eje neutro.
-        @param point:
-        @return:
+        @param point: Un punto en dos o tres dimensiones.
+        @return: La distancia entre el punto y el eje baricéntrico paralelo al neutro de la sección, en mm.
         """
+
+        if isinstance(point, Point2D):
+            point = [0, point.y, point.z]
+
         return np.cross(point, self.nn)[0]
 
     def get_dist_nn(self, point):
@@ -209,9 +214,12 @@ class StrainPlane:
             de que el plano sea horizontal. La distancia se toma positiva si la fibra se encuentra del lado del eje
             neutro donde una curvatura positiva genera compresión.
 
-        @param point:
-        @return:
+        @param point: Un punto en dos o tres dimensiones.
+        @return: La distancia entre el punto y el eje neutro de la sección, en mm.
         """
+        if isinstance(point, Point2D):
+            point = [0, point.y, point.z]
+
         s = point - self.r
         return np.cross(s, self.nn)[0]
 

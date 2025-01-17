@@ -11,13 +11,13 @@ from .materials import SteelMaterial, ConcreteMaterial
 logger = logging.getLogger(__name__)
 
 
-class ReinforcementConcreteSection:
+class ReinforcementConcreteSectionBase:
 
     def __init__(self, concrete, steel, bars, stirrups=None, iterations=50):
 
         super().__init__()
 
-        self.max_iterations= iterations
+        self.max_iterations = iterations
 
         self.strain_plane = StrainPlane()
 
@@ -30,33 +30,30 @@ class ReinforcementConcreteSection:
 
         self.force_e: Optional[Force] = None
         self.theta_me = None
-        self.force_i: Optional[Force] = Force()
+        self.ee = None
+
+        self.force_i: Optional[Force] = None
         self.theta_mi = None
 
         self.concrete_status = GroupFiberStatus()
         self.steel_status = GroupFiberStatus()
 
-        # Ángulo desde el plano zx hacia el semiplano que contiene al eje "x" y sobre el cual se define la curva de
-        # interacción.
+        # Parámetros independientes de las fuerzas, los planos de deformaciones y la resolución del mallado
         self._Ag = None
         self._As = None
-
         self._pn_compression = None
         self._pn_tension = None
 
         self._built = False
 
     def clean(self):
+
         self.force_e: Optional[Force] = None
         self.theta_me = None
-        self.force_i: Optional[Force] = Force()
+        self.ee = None
+
+        self.force_i: Optional[Force] = None
         self.theta_mi = None
-
-        self.concrete_status = GroupFiberStatus()
-        self.steel_status = GroupFiberStatus()
-
-        self._Ag = None
-        self._As = None
 
         self._pn_compression = None
         self._pn_tension = None
@@ -64,7 +61,7 @@ class ReinforcementConcreteSection:
     def _build_concrete_fibers(self):
         raise NotImplementedError
 
-    def increase_resolution(self, factor):
+    def _increase_resolution(self, factor):
         raise NotImplementedError
 
     def build(self, force=False):
@@ -83,7 +80,7 @@ class ReinforcementConcreteSection:
         if self._Ag is None:
             self._Ag = 0
             for fiber in self.concrete_fibers:
-                self._Ag += max(fiber.area, 0)
+                self._Ag += max(fiber.area, 0)  # Para no sumar las fibras con áreas negativa
         return self._Ag
 
     @property
@@ -122,8 +119,8 @@ class ReinforcementConcreteSection:
 
         for fiber in fibers:
 
-            fiber.distance_nn = strain_plane.get_dist_nn(fiber.point)
-            fiber.distance_nn_cg = strain_plane.get_dist_nn_cg(fiber.point)
+            fiber.distance_nn = strain_plane.get_dist_nn(fiber.center)
+            fiber.distance_nn_cg = strain_plane.get_dist_nn_cg(fiber.center)
 
             if not farthest_fiber or (compression == (fiber.distance_nn >= farthest_fiber.distance_nn)):
                 farthest_fiber = fiber
@@ -131,10 +128,11 @@ class ReinforcementConcreteSection:
         return farthest_fiber
 
     @staticmethod
-    def _get_e(force):
+    def _get_e(force: Force):
         if force:
             if force.N != 0:
                 return np.linalg.norm(force.M) / force.N
+
             return np.inf
         return 0
 
@@ -144,7 +142,7 @@ class ReinforcementConcreteSection:
 
         coef = 0.85 if self.stirrups and self.stirrups.stirrup_type == 2 else 0.80
 
-        return -coef * phi * (0.85 * self.concrete.fpc * (self.Ag - self.As) + self.steel.fy * self.As) * 1e-3
+        return -coef * phi * (0.85 * self.concrete.fpc * (self.Ag - self.As) + self.steel.fy * self.As)
 
     @property
     def pn_compression(self):
@@ -163,10 +161,10 @@ class ReinforcementConcreteSection:
         self.build()
 
         for fiber in self.steel_fibers:
-            fiber.strain = self.strain_plane.get_strain(fiber.point)
+            fiber.strain = self.strain_plane.get_strain(fiber.center)
 
         for fiber in self.concrete_fibers:
-            fiber.strain = self.strain_plane.get_strain(fiber.point)
+            fiber.strain = self.strain_plane.get_strain(fiber.center)
 
         self.concrete_status.update(self.concrete_fibers)
         self.steel_status.update(self.steel_fibers)
@@ -328,7 +326,7 @@ class ReinforcementConcreteSection:
         if np.isclose(spp_inf, spp_sup):
             spp_inf = spp_inf * 0.2
             spp_sup = 0.8 * spp_sup + 0.2
-            self.increase_resolution(2)
+            self._increase_resolution(2)
             logger.debug("Duplicación de la resolución")
 
         # Se realiza una comparación doble debido a la discontinuidad de la función para determinar si el parámetro
@@ -363,7 +361,7 @@ class ReinforcementConcreteSection:
 
         return forces
 
-    def plot_diagram_2d(self, theta_me=0, points=42):
+    def plot_diagram_2d(self, theta_me=0, points=48):
         nominal = []
         design = []
 
@@ -372,12 +370,12 @@ class ReinforcementConcreteSection:
 
             self.set_limit_plane_by_strains(strain_concrete, strain_steel, theta_me)
 
-            M, N = np.linalg.norm(self.force_i.M) * 1e-6, self.force_i.N * 1e-3
+            M, N = np.linalg.norm(self.force_i.M), self.force_i.N
 
             nominal.append([M, N])
 
             factor = self.phi(strain_steel)
-            design.append([factor * M, max(self.Pd_max(factor), factor * N)])
+            design.append([factor * M, max(self.Pd_max(strain_steel), factor * N)])
 
         x, y = zip(*nominal)
         plt.plot(x, y, marker='', linestyle='-', color='g', label='Nn-Mn')
@@ -385,8 +383,8 @@ class ReinforcementConcreteSection:
         x, y = zip(*design)
         plt.plot(x, y, marker='', linestyle='-', color='r', label='Nd-Md')
 
-        plt.xlabel('M [kNm]')
-        plt.ylabel('N [kN]')
+        plt.xlabel('M [Nmm]')
+        plt.ylabel('N [N]')
 
         plt.gca().invert_yaxis()
 
@@ -423,20 +421,14 @@ class ReinforcementConcreteSection:
         plt.autoscale()
         plt.show()
 
-    def get_nominal_force(self):
-
-        if not self.force_e:
-            raise ValueError("Sede especificar una fuerza externa aplicada a la sessión")
-
-        ee = self.force_e.e
-        theta_me = self.force_e.theta_M or 0
+    def get_nominal_force(self, ee=0, theta=0, compression=True):
 
         if ee != 0:
-            self.set_limit_plane_by_eccentricity(ee, theta_me)
-        elif self.force_e.N < 0:
-            self.set_limit_plane_by_strains(self.concrete.limit_strain, self.concrete.limit_strain, theta_me)
+            self.set_limit_plane_by_eccentricity(ee, theta)
+        elif compression:
+            self.set_limit_plane_by_strains(self.concrete.limit_strain, self.concrete.limit_strain, theta)
         else:
-            self.set_limit_plane_by_strains(self.steel.limit_strain, self.steel.limit_strain, theta_me)
+            self.set_limit_plane_by_strains(self.steel.limit_strain, self.steel.limit_strain, theta)
 
         return self.force_i
 
@@ -447,16 +439,16 @@ class ReinforcementConcreteSection:
                 max_strain = fiber.strain
         return max_strain
 
-    def get_design_force(self):
+    def get_design_force(self, ee=0, theta=0, compression=True):
 
-        nominal = self.get_nominal_force()
+        nominal = self.get_nominal_force(ee, theta, compression=compression)
 
         max_strain_steel = self._get_max_strain_steel()
 
         design = nominal * self.phi(max_strain_steel)
 
-        if self.force_e.N < 0:
-            Pd_max = self.Pd_max(max_strain_steel) * 1e3
+        if nominal.N < 0:
+            Pd_max = self.Pd_max(max_strain_steel)
             if design.N < Pd_max:
                 return design * (Pd_max / design.N)
 

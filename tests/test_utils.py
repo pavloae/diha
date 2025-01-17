@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import numpy as np
 
-from diha.utils import calc_angle_yz
+from diha.utils import calc_angle_yz, is_same_direction
 
 
 class TestCalcAngleYZ(TestCase):
@@ -30,3 +30,17 @@ class TestCalcAngleYZ(TestCase):
         self.assertAlmostEqual(3 / 4 * np.pi, calc_angle_yz(a, c))
         self.assertAlmostEqual(np.pi, calc_angle_yz(a, -a))
         self.assertAlmostEqual(1.25 * np.pi, calc_angle_yz(a, d))
+
+
+class Test(TestCase):
+
+    def test_is_same_direction(self):
+
+        self.assertTrue(is_same_direction([0, 1, 0], [0, 1, 0]))
+        self.assertTrue(is_same_direction([0, 1, 0], [0, -1, 0]))
+
+        self.assertTrue(is_same_direction([0, 1, 1], [0, 1, 1]))
+        self.assertTrue(is_same_direction([0, 1, 1], [0, -1, -1]))
+
+        self.assertTrue(is_same_direction([0, 1, 0], [0, -1, 1e-7]))
+        self.assertFalse(is_same_direction([0, 1, 0], [0, -1, 1e-6]))

@@ -11,13 +11,21 @@ from .materials import Material
 class Fiber:
 
     def __init__(self, material: Material, center, area):
+        """
+            Representación de una fibra mediante las propiedades de un material, un área y las coordenadas de su baricentro.
+
+        @param material: Objeto con las propiedades constitutivas del material.
+        @param center: Un array de coordenadas representando el baricentro de la fibra [yg, zg], en mm.
+        @param area: El área de la fibra, en mm²
+        """
+
         super().__init__()
         self.material: Material = material
         self.center = Point2D(*center)
 
         self.y = center[0]
         self.z = center[1]
-        self.point = np.array([0, self.y, self.z])
+        # self.point = np.array([0, self.y, self.z])
         self._area = area
 
         self.distance_nn = None

@@ -1,5 +1,11 @@
 class Point2D:
     def __init__(self, y, z):
+        """
+            Clase para representar un punto en un plano en dos dimensiones.
+
+        @param y: Coordenada sobre el eje vertical y, en mm.
+        @param z: Coordenadas sobre el eje horizontal z, en mm.
+        """
         self.y = y
         self.z = z
 
@@ -21,6 +27,13 @@ class Point2D:
 class Point3D(Point2D):
 
     def __init__(self, x, y, z):
+        """
+            Clase para representar un punto en un plano en tres dimensiones.
+
+        @param x: Coordenada sobre el eje perpendicular al plano x, en mm.
+        @param y: Coordenadas sobre el eje horizontal y, en mm.
+        @param z: Coordenadas sobre el eje horizontal z, en mm.
+        """
         super().__init__(y, z)
         self.x = x
 

@@ -10,17 +10,17 @@ class TestForce(TestCase):
 
         self.assertEqual(
             str(Force()),
-            "N =      0.0 kN - My =     0.0 kNm - Mz =     0.0 kNm"
+            "N =      0.0 - My =     0.0 - Mz =     0.0"
         )
 
         self.assertEqual(
             str(Force(N=-250.955, My=300.455, Mz=400.544)),
-            "N =   -251.0 kN - My =   300.5 kNm - Mz =   400.5 kNm"
+            "N =   -251.0 - My =   300.5 - Mz =   400.5"
         )
 
         self.assertEqual(
             str(Force(N=-12345.955, My=3000.455, Mz=4000.544)),
-            "N = -12346.0 kN - My =  3000.5 kNm - Mz =  4000.5 kNm"
+            "N = -12346.0 - My =  3000.5 - Mz =  4000.5"
         )
 
     def test_theta_m(self):
