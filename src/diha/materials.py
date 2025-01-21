@@ -24,7 +24,7 @@ class SteelMaterial(Material):
         """
         super().__init__()
         self.fy = fy
-        self.E = E
+        self.E = 200000 if E is None else E
         self.limit_strain = 0.005
 
     def get_stress(self, strain):

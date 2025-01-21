@@ -1,0 +1,18 @@
+{
+  "concrete": {
+    "fpc": 20
+  },
+  "steel": {
+    "fy": 420,
+    "E": 200000
+  },
+  "bars": [
+    {"center": [200, 100], "diam": 20}, {"center": [-200, 100], "diam": 20},
+    {"center": [200, -100], "diam": 20}, {"center": [-200, -100], "diam": 20}
+  ],
+  "type": "rectangular",
+  "properties": {
+    "b": 300,
+    "h": 500
+  }
+}
