@@ -363,7 +363,7 @@ class ReinforcementConcreteSectionBase:
 
         return forces
 
-    def plot_diagram_2d(self, theta_me=0, points=48):
+    def plot_diagram_2d(self, theta_me=0, points=32, file=None):
         nominal = []
         design = []
 
@@ -394,7 +394,11 @@ class ReinforcementConcreteSectionBase:
         plt.legend()
         plt.grid(True)
         plt.autoscale()
-        plt.show()
+
+        if file:
+            plt.savefig(file, format='svg')
+        else:
+            plt.show()
 
     def plot_section(self):
 

@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=75.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diha"
+version = "0.1.0"
+authors = [
+  { name="Pablo E. Andino", email="pabloe.andino@gmail.com" },
+]
+description = "Diagramas de Interacción para elementos de barra Hormigón Armado"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    'matplotlib == 3.10.0',
+    'numpy == 2.2.2'
+]
+
+[project.optional-dependencies]
+cli = [
+    'click==8.1.8',
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pavloae/diha"
+"Bug Tracker" = "https://github.com/pavloae/diha/issues"
+
+[project.scripts]
+diha = "diha.commands:cli"
