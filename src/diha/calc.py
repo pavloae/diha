@@ -232,7 +232,7 @@ class ReinforcementConcreteSectionBase:
             # deformación
             theta_mi = self.force_i.theta_M or self.strain_plane.theta
 
-            return np.isclose(0.0, (theta_me - theta_mi) % np.pi, rtol=1.e-5, atol=1.e-8)
+            return math.isclose(0.0, (theta_me - theta_mi) % np.pi, abs_tol=1.e-2)
 
         iteration = 0
         while not condition():
@@ -241,7 +241,7 @@ class ReinforcementConcreteSectionBase:
             if iteration >= max_iterations:
                 raise StopIteration
 
-            self.strain_plane.theta = self.force_i.theta_M
+            self.strain_plane.theta += theta_me - self.force_i.theta_M
 
     def set_limit_plane_by_eccentricity(self, ee, theta_me, spp_inf=0.0, spp_sup=1.0, iteration=0, max_iterations=100):
         """
