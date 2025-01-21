@@ -19,7 +19,7 @@ def cli():
     pass
 
 @cli.command()
-@click.argument('input_file', type=click.Path(exists=True), help="Nombre del archivo con las propiedades de la sección.")
+@click.argument('input_file', type=click.Path(exists=True))
 @click.option('--output_file', default=None, help='Nombre del archivo de salida con el grafico del diagrama')
 @click.option('--theta', required=False, type=float, show_default=True, default=0, help='Rotación del vector de momentos en grados respecto del eje +Z')
 @click.option('--points', required=False, type=int, show_default=True, default=32, help="Numero de puntos a calcular sobre la curva de interacción")
