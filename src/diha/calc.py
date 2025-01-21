@@ -61,7 +61,7 @@ class ReinforcementConcreteSectionBase:
     def _build_concrete_fibers(self):
         raise NotImplementedError
 
-    def _increase_resolution(self, factor):
+    def increase_resolution(self, factor):
         raise NotImplementedError
 
     def build(self, force=False):
@@ -326,7 +326,7 @@ class ReinforcementConcreteSectionBase:
         if np.isclose(spp_inf, spp_sup):
             spp_inf = spp_inf * 0.2
             spp_sup = 0.8 * spp_sup + 0.2
-            self._increase_resolution(2)
+            self.increase_resolution(2)
             logger.debug("Duplicación de la resolución")
 
         # Se realiza una comparación doble debido a la discontinuidad de la función para determinar si el parámetro

@@ -34,7 +34,7 @@ class RectangularRCSectionBase(ReinforcementConcreteSectionBase):
         self.div_y = div_y
         self.div_z = div_z
 
-    def _increase_resolution(self, factor):
+    def increase_resolution(self, factor):
         self.div_y = self.div_y * factor
         self.div_z = self.div_z * factor
         self.build(force=True)

@@ -379,7 +379,7 @@ class TestReinforcementConcreteSection(TestCase):
 
     def test_spp_function(self):
         section = get_section_1()
-        section._increase_resolution(2)
+        section.increase_resolution(2)
 
         section.set_limit_plane_by_strains(-0.003, -0.00284, theta_me=0)
         section.analyze()
