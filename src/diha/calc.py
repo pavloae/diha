@@ -1,8 +1,10 @@
 import logging
+import math
 from typing import List, Optional
 
 import numpy as np
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, cm
+import matplotlib.colors as mcolors
 
 from .components import Force, StrainPlane
 from .fibers import RectFiber, RoundFiber, GroupFiberStatus, Fiber
@@ -370,12 +372,12 @@ class ReinforcementConcreteSectionBase:
 
             self.set_limit_plane_by_strains(strain_concrete, strain_steel, theta_me)
 
-            M, N = np.linalg.norm(self.force_i.M), self.force_i.N
+            M, N = np.linalg.norm(self.force_i.M) * 1e-6, self.force_i.N * 1e-3
 
             nominal.append([M, N])
 
             factor = self.phi(strain_steel)
-            design.append([factor * M, max(self.Pd_max(strain_steel), factor * N)])
+            design.append([factor * M, max(self.Pd_max(strain_steel) * 1e-3, factor * N)])
 
         x, y = zip(*nominal)
         plt.plot(x, y, marker='', linestyle='-', color='g', label='Nn-Mn')
@@ -383,8 +385,8 @@ class ReinforcementConcreteSectionBase:
         x, y = zip(*design)
         plt.plot(x, y, marker='', linestyle='-', color='r', label='Nd-Md')
 
-        plt.xlabel('M [Nmm]')
-        plt.ylabel('N [N]')
+        plt.xlabel('M [kNm]')
+        plt.ylabel('N [kN]')
 
         plt.gca().invert_yaxis()
 
@@ -402,11 +404,53 @@ class ReinforcementConcreteSectionBase:
 
         # Dibuja elementos de hormigón
         for fiber in self.concrete_fibers:
-            fiber.plot(ax)
+            fiber.plot(ax, color='gray')
 
         # Dibuja armaduras
         for fiber in self.steel_fibers:
-            fiber.plot(ax)
+            fiber.plot(ax, color='blue')
+
+        # Configura gráfico
+        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlabel("Z (mm)")
+        ax.set_ylabel("Y (mm)")
+        ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+        ax.axvline(0, color='gray', linestyle='--', linewidth=0.8)
+
+        plt.gca().invert_xaxis()
+        plt.title(f"{self.__class__.__name__}")
+        plt.grid(False)
+        plt.autoscale()
+        plt.show()
+
+    def plot_tension(self):
+
+        fig, ax = plt.subplots(figsize=(6, 8))
+
+        self.build()
+
+        stress = [fibra.stress for fibra in self.concrete_fibers + self.steel_fibers]
+        min_stress = min(stress)
+        max_stress = max(stress)
+
+        norm = mcolors.Normalize(vmin=min_stress, vmax=max_stress)
+        cmap = plt.get_cmap('bwr')
+
+        # Dibuja elementos de hormigón
+        for fiber in self.concrete_fibers:
+            color = cmap(norm(fiber.stress * 10))
+            fiber.plot(ax, color=color)
+
+        # Dibuja armaduras
+        for fiber in self.steel_fibers:
+            color = cmap(norm(fiber.stress))
+            fiber.plot(ax, color=color)
+
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax)
+        cbar.set_label('Tensión (MPa)')
+        cbar.ax.invert_yaxis()  # Invertir la barra de colores para que el rojo esté arriba
 
         # Configura gráfico
         ax.set_aspect('equal', adjustable='box')

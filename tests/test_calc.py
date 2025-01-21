@@ -35,7 +35,6 @@ def get_section_1():
 
     return section
 
-
 def get_section_2():
     concrete = ConcreteMaterial()
     steel = SteelMaterial()
@@ -57,7 +56,6 @@ def get_section_2():
     section.rec = rec
 
     return section
-
 
 def get_section_3():
     concrete = ConcreteMaterial(fpc=25)
@@ -81,6 +79,24 @@ def get_section_3():
     ]
     return RectangularRCSectionBase(concrete, steel, b, h, bars)
 
+def get_section_4():
+    concrete = ConcreteMaterial()
+    steel = SteelMaterial()
+
+    b = 200
+    h = 200
+    rec = 25
+
+    diam = 12
+
+    bars = [
+        RoundFiber(steel, (h / 2 - rec, b / 2 - rec), diam), RoundFiber(steel, (h / 2 - rec, -b / 2 + rec), diam),
+        RoundFiber(steel, (-h / 2 + rec, b / 2 - rec), diam), RoundFiber(steel, (-h / 2 + rec, -b / 2 + rec), diam),
+    ]
+
+    section = RectangularRCSectionBase(concrete, steel, stirrups=Stirrups(), b=b, h=h, bars=bars)
+
+    return section
 
 class TestReinforcementConcreteSection(TestCase):
 
@@ -188,6 +204,11 @@ class TestReinforcementConcreteSection(TestCase):
     def test_plot_section(self):
         section = get_section_1()
         section.plot_section()
+
+    def test_plot_tension(self):
+        section = get_section_1()
+        section.set_limit_plane_by_strains(-0.003, 0.005, 0.25 * np.pi)
+        section.plot_tension()
 
     def test_plot_diagram_2d(self):
         section = get_section_1()
@@ -347,12 +368,12 @@ class TestReinforcementConcreteSection(TestCase):
         # Aproximación por cargas de compresión
         ee = -np.inf
         section.set_limit_plane_by_eccentricity(ee, 0)
-        self.assertAlmostEqual(Mu, section.get_design_force(ee, 0).Mz * 1e-6, delta=0.1)
+        self.assertAlmostEqual(Mu, section.get_design_force(ee, 0).Mz * 1e-6, delta=0.01 * Mu)
 
         # Aproximación por cargas de tracción
         ee = np.inf
         section.set_limit_plane_by_eccentricity(ee, 0)
-        self.assertAlmostEqual(Mu, section.get_design_force(ee, 0).Mz * 1e-6, delta=0.1)
+        self.assertAlmostEqual(Mu, section.get_design_force(ee, 0).Mz * 1e-6, delta=0.01 * Mu)
 
     def test_bending_sample_2_I_7(self):
 

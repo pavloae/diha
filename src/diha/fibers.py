@@ -62,7 +62,7 @@ class Fiber:
 
         return self._force
 
-    def plot(self, ax):
+    def plot(self, ax, color=None):
         pass
 
     def set_negative(self):
@@ -78,11 +78,12 @@ class RectFiber(Fiber):
         self.dy = dy
         self.dz = dz
 
-    def plot(self, ax):
+    def plot(self, ax, color=None):
         y0, z0 = self.center[0] - self.dy / 2, self.center[1] - self.dz / 2
         rect = patches.Rectangle(
             (z0, y0), self.dz, self.dy, edgecolor="gray", facecolor="lightblue", alpha=0.5
         )
+        rect.set_facecolor(color)
         ax.add_patch(rect)
 
 
@@ -92,9 +93,10 @@ class RoundFiber(Fiber):
         super().__init__(material, center, np.pi / 4 * diam ** 2)
         self.diam = diam
 
-    def plot(self, ax):
+    def plot(self, ax, color=None):
         y, z = self.center
         circle = plt.Circle((z, y), self.diam / 2, color='red', alpha=0.7)
+        circle.set_facecolor(color)
         ax.add_patch(circle)
 
 

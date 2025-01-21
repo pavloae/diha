@@ -22,14 +22,14 @@ class RectangularRCSectionBase(ReinforcementConcreteSectionBase):
 
         if not div_z and not div_y:
             if h > b:
-                div_z = 20
+                div_z = 32
             else:
-                div_y = 20
+                div_y = 32
 
         if div_z and not div_y:
             div_y = int(h / b * div_z) & -2
         elif div_y and not div_z:
-            div_y = int(h / b * div_z) & -2
+            div_z = int(b / h * div_y) & -2
 
         self.div_y = div_y
         self.div_z = div_z
