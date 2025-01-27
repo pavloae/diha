@@ -4,99 +4,12 @@ from unittest import TestCase
 import numpy as np
 from matplotlib import pyplot as plt
 
-from diha.components import Force, StrainPlane, Stirrups
+from diha.components import Force, StrainPlane
 from diha.fibers import RoundFiber
 from diha.materials import ConcreteMaterial, SteelMaterial
 from diha.sections import RectangularRCSectionBase
+from section_factory import get_section_1, get_section_2, get_section_3
 
-
-def get_section_1():
-    concrete = ConcreteMaterial()
-    steel = SteelMaterial()
-
-    b = 500
-    h = 750
-    rec = 75
-
-    diam = 25
-
-    bars = [
-        RoundFiber(steel, (h / 2 - rec, b / 2 - rec), diam), RoundFiber(steel, (h / 2 - rec, 0), diam),
-        RoundFiber(steel, (h / 2 - rec, -b / 2 + rec), diam),
-        RoundFiber(steel, (1 / 3 * (h / 2 - rec), b / 2 - rec), diam),
-        RoundFiber(steel, (1 / 3 * (h / 2 - rec), -b / 2 + rec), diam),
-        RoundFiber(steel, (-1 / 3 * (h / 2 - rec), b / 2 - rec), diam),
-        RoundFiber(steel, (-1 / 3 * (h / 2 - rec), -b / 2 + rec), diam),
-        RoundFiber(steel, (-h / 2 + rec, b / 2 - rec), diam), RoundFiber(steel, (-h / 2 + rec, 0), diam),
-        RoundFiber(steel, (-h / 2 + rec, -b / 2 + rec), diam),
-    ]
-
-    section = RectangularRCSectionBase(concrete, steel, stirrups=Stirrups(), b=b, h=h, bars=bars)
-
-    return section
-
-def get_section_2():
-    concrete = ConcreteMaterial()
-    steel = SteelMaterial()
-
-    b = 200
-    h = 600
-    rec = 30
-
-    diam = 16
-
-    bars = [
-        RoundFiber(steel, (h / 2 - rec, b / 2 - rec), diam), RoundFiber(steel, (h / 2 - rec, 0), diam),
-        RoundFiber(steel, (h / 2 - rec, -b / 2 + rec), diam),
-        RoundFiber(steel, (-h / 2 + rec, b / 2 - rec), diam), RoundFiber(steel, (-h / 2 + rec, 0), diam),
-        RoundFiber(steel, (-h / 2 + rec, -b / 2 + rec), diam),
-    ]
-
-    section = RectangularRCSectionBase(concrete, steel, stirrups=Stirrups(), b=b, h=h, bars=bars)
-    section.rec = rec
-
-    return section
-
-def get_section_3():
-    concrete = ConcreteMaterial(fpc=25)
-    steel = SteelMaterial(fy=420)
-    b, h = 120, 400
-    As = 443
-
-    diam = np.sqrt((As / 4) * 4 / np.pi)
-    rec = 20 + 6 + diam / 2
-    y1 = - h / 2 + rec
-
-    d = 347
-    yg = h / 2 - d
-
-    sep = 2 * (yg - y1)
-    y2 = y1 + sep
-
-    bars = [
-        RoundFiber(steel, (y1, b / 2 - rec), diam), RoundFiber(steel, (y1, -b / 2 + rec), diam),
-        RoundFiber(steel, (y2, b / 2 - rec), diam), RoundFiber(steel, (y2, -b / 2 + rec), diam),
-    ]
-    return RectangularRCSectionBase(concrete, steel, b, h, bars)
-
-def get_section_4():
-    concrete = ConcreteMaterial()
-    steel = SteelMaterial()
-
-    b = 200
-    h = 200
-    rec = 25
-
-    diam = 12
-
-    bars = [
-        RoundFiber(steel, (h / 2 - rec, b / 2 - rec), diam), RoundFiber(steel, (h / 2 - rec, -b / 2 + rec), diam),
-        RoundFiber(steel, (-h / 2 + rec, b / 2 - rec), diam), RoundFiber(steel, (-h / 2 + rec, -b / 2 + rec), diam),
-    ]
-
-    section = RectangularRCSectionBase(concrete, steel, stirrups=Stirrups(), b=b, h=h, bars=bars)
-
-    return section
 
 class TestReinforcementConcreteSection(TestCase):
 
@@ -201,54 +114,40 @@ class TestReinforcementConcreteSection(TestCase):
 
         self.assertIsNotNone(forces)
 
-    def test_plot_section(self):
-        section = get_section_1()
-        section.plot_section()
-
-    def test_plot_tension(self):
-        section = get_section_1()
-        section.set_limit_plane_by_strains(-0.003, 0.005, 0.25 * np.pi)
-        section.plot_tension()
-
-    def test_plot_diagram_2d(self):
-        section = get_section_1()
-        section.plot_section()
-        section.plot_diagram_2d(theta_me=0)
-
     def test_get_limit_strains(self):
         section = get_section_1()
-        self.assertAlmostEqual((-0.003, -0.003), section.get_limits_strain(0))
-        self.assertAlmostEqual((-0.003, 0.001), section.get_limits_strain(.25))
-        self.assertAlmostEqual((-0.003, 0.005), section.get_limits_strain(.5))
-        self.assertAlmostEqual((0.001, 0.005), section.get_limits_strain(.75))
-        self.assertAlmostEqual((0.005, 0.005), section.get_limits_strain(1))
+        self.assertAlmostEqual((-0.003, -0.003), section._get_limits_strain(0))
+        self.assertAlmostEqual((-0.003, 0.001), section._get_limits_strain(.25))
+        self.assertAlmostEqual((-0.003, 0.005), section._get_limits_strain(.5))
+        self.assertAlmostEqual((0.001, 0.005), section._get_limits_strain(.75))
+        self.assertAlmostEqual((0.005, 0.005), section._get_limits_strain(1))
 
     def test_get_farthest_fiber(self):
         section = get_section_2()
         section.build()
 
         # Flexión alrededor del eje z
-        strain_plane = StrainPlane(0, 1, 0)
+        section.strain_plane = StrainPlane(0, 1, 0)
         delta_y = section.h / section.div_y
 
-        ffc = section.get_farthest_fiber(section.concrete_fibers, strain_plane, compression=True)
+        ffc = section._get_farthest_fiber_concrete()
         dist = section.h / 2 - delta_y / 2
         self.assertAlmostEqual(ffc.center.y, dist)
 
-        ffs = section.get_farthest_fiber(section.steel_fibers, strain_plane, compression=False)
-        dist = section.steel_fibers[-1].y
+        ffs = section._get_farthest_fiber_steel()
+        dist = section.steel_fibers[-1].center.y
         self.assertAlmostEqual(ffs.center.y, dist)
 
         # Flexión alrededor del eje y
-        strain_plane = StrainPlane(1.5 * np.pi, 1, 0)
+        section.strain_plane = StrainPlane(1.5 * np.pi, 1, 0)
         delta_z = section.b / section.div_z
 
-        ffc = section.get_farthest_fiber(section.concrete_fibers, strain_plane, compression=True)
+        ffc = section._get_farthest_fiber_concrete()
         dist = section.b / 2 - delta_z / 2
         self.assertAlmostEqual(ffc.center.z, -dist)
 
-        ffs = section.get_farthest_fiber(section.steel_fibers, strain_plane, compression=False)
-        dist = section.steel_fibers[0].z
+        ffs = section._get_farthest_fiber_steel()
+        dist = section.steel_fibers[0].center.z
         self.assertAlmostEqual(ffs.center.z, dist)
 
     def test_get_params(self):
@@ -323,23 +222,32 @@ class TestReinforcementConcreteSection(TestCase):
         Pn = section.steel.fy * section.As
         Pd = 0.90 * Pn
 
-        section.get_nominal_force(0, 0, compression=False)
-        self.assertAlmostEqual(section.get_nominal_force(0, 0, compression=False).N, Pn)
-        self.assertAlmostEqual(section.get_design_force(0, 0, compression=False).N, Pd)
+        force = Force(N=1)
+        self.assertAlmostEqual(section.get_nominal_force(force).N, Pn)
+        self.assertAlmostEqual(section.get_design_force(force).N, Pd)
 
         # Compresión pura
 
         Pn = -(0.85 * section.concrete.fpc * section.An + section.steel.fy * section.As)
         Pd = 0.65 * 0.80 * Pn
 
-        section.force_e = Force(N=-10)
-        self.assertAlmostEqual(section.get_nominal_force(0, 0, compression=True).N, Pn)
-        self.assertAlmostEqual(section.get_design_force(0, 0, compression=True).N, Pd)
+        force = Force(N=-1)
+        self.assertAlmostEqual(section.get_nominal_force(force).N, Pn)
+        self.assertAlmostEqual(section.get_design_force(force).N, Pd)
 
         # Flexo-compresión
 
-        section.force_e = Force(N=-2000e3, Mz=200e6)
-        self.assertAlmostEqual(-3900e3, section.get_design_force(section.force_e.e, 0).N, delta=100e3)
+        force = Force(N=-2000e3, Mz=200e6)
+        self.assertAlmostEqual(-3900e3, section.get_design_force(force).N, delta=100e3)
+
+    def test_get_rel(self):
+        section = get_section_1()
+
+        # Compresión pura
+
+        force = Force(N=-1000000.0)
+        rel = force.N / (0.65 * 0.8 * section.get_Pnc())
+        self.assertAlmostEqual(section.get_rel(force), rel)
 
     def test_bending_sample_2_I_1(self):
 
@@ -366,14 +274,12 @@ class TestReinforcementConcreteSection(TestCase):
         section = RectangularRCSectionBase(concrete, steel, b, h, bars)
 
         # Aproximación por cargas de compresión
-        ee = -np.inf
-        section.set_limit_plane_by_eccentricity(ee, 0)
-        self.assertAlmostEqual(Mu, section.get_design_force(ee, 0).Mz * 1e-6, delta=0.01 * Mu)
+        force = Force(N=-1e-8, Mz=1)
+        self.assertAlmostEqual(Mu, section.get_design_force(force).Mz * 1e-6, delta=0.01 * Mu)
 
         # Aproximación por cargas de tracción
-        ee = np.inf
-        section.set_limit_plane_by_eccentricity(ee, 0)
-        self.assertAlmostEqual(Mu, section.get_design_force(ee, 0).Mz * 1e-6, delta=0.01 * Mu)
+        force = Force(N=1e-8, Mz=1)
+        self.assertAlmostEqual(Mu, section.get_design_force(force).Mz * 1e-6, delta=0.01 * Mu)
 
     def test_bending_sample_2_I_7(self):
 
@@ -394,20 +300,19 @@ class TestReinforcementConcreteSection(TestCase):
         section = RectangularRCSectionBase(concrete, steel, b, h, bars)
 
         # Aproximación por cargas de compresión
-        ee = -np.inf
-        section.set_limit_plane_by_eccentricity(ee, 0)
-        self.assertAlmostEqual(51.66, section.get_design_force(ee, 0).Mz * 1e-6, delta=0.3)
+        force = Force(N=-1e-8, Mz=1)
+        self.assertAlmostEqual(51.66, section.get_design_force(force).Mz * 1e-6, delta=0.3)
 
     def test_spp_function(self):
         section = get_section_1()
         section.increase_resolution(2)
 
         section.set_limit_plane_by_strains(-0.003, -0.00284, theta_me=0)
-        section.analyze()
+        section._calc_force_i()
 
         n = 100
         spp = np.arange(0, n + 1) / n
-        strains = [section.get_limits_strain(param) for param in spp]
+        strains = [section._get_limits_strain(param) for param in spp]
 
         eccentricity = []
         for strain in strains:
@@ -420,4 +325,4 @@ class TestReinforcementConcreteSection(TestCase):
     def test_analyze(self):
         section = get_section_3()
         section.set_limit_plane_by_strains(-0.003, -0.003, theta_me=0)
-        section.analyze()
+        section._calc_force_i()

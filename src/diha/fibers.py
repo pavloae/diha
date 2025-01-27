@@ -23,9 +23,6 @@ class Fiber:
         self.material: Material = material
         self.center = Point2D(*center)
 
-        self.y = center[0]
-        self.z = center[1]
-        # self.point = np.array([0, self.y, self.z])
         self._area = area
 
         self.distance_nn = None
@@ -58,7 +55,7 @@ class Fiber:
     def force(self):
         if not self._force:
             N = self.stress * self.area
-            self._force = Force(N, N * self.z, -N * self.y)
+            self._force = Force(N, N * self.center.z, -N * self.center.y)
 
         return self._force
 

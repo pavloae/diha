@@ -8,9 +8,6 @@ from diha.sections import RectangularRCSectionBase
 
 class SectionBuilder:
 
-    def __init__(self):
-        super().__init__()
-
     def build(self, section_dict) -> ReinforcementConcreteSectionBase:
         steel = SteelMaterial(**section_dict["steel"])
         concrete = ConcreteMaterial(**section_dict["concrete"])
@@ -25,7 +22,7 @@ class SectionBuilder:
                 div_y=properties.get('div_y', None), div_z=properties.get('div_z', None)
             )
         else:
-            raise NotImplementedError("La sección %s no está implementado" % section_dict["type"])
+            raise NotImplementedError("La sección %s no está implementada" % section_dict["type"])
 
     def from_json(self, filename) -> ReinforcementConcreteSectionBase:
         with open(filename, "r") as f:

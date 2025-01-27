@@ -6,7 +6,7 @@ class RectangularRCSectionBase(ReinforcementConcreteSectionBase):
 
     def __init__(self, concrete, steel, b, h, bars, stirrups=None, div_y=None, div_z=None):
         """
-            Clase apra la construcciónn de una sección de hormigón armado rectangular.
+            Clase para la construcción de una sección de hormigón armado rectangular.
         @param concrete: Material que define las propiedades del hormigón
         @param steel: Material que define las propiedades del acero
         @param b: Ancho de la sección
