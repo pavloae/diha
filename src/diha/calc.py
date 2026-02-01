@@ -31,7 +31,7 @@ class ReinforcementConcreteSectionBase:
         self._Ag = None
         self._As = None
 
-        self.strain_plane = StrainPlane()
+        self._strain_plane = StrainPlane()
         self._max_strain_steel = None
         self.force_i: Optional[Force] = None
 
@@ -139,6 +139,16 @@ class ReinforcementConcreteSectionBase:
 
     def increase_resolution(self, factor):
         raise NotImplementedError
+
+    @property
+    def strain_plane(self):
+        return self._strain_plane
+
+    @strain_plane.setter
+    def strain_plane(self, val: StrainPlane):
+        self._strain_plane.theta = val.theta
+        self._strain_plane.kappa = val.kappa
+        self._strain_plane.xo = val.xo
 
     @property
     def concrete_fibers(self):
