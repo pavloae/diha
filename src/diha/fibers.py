@@ -47,13 +47,13 @@ class Fiber:
 
     @property
     def stress(self):
-        if not self._stress:
+        if self._stress is None:
             self._stress = self.material.get_stress(self.strain)
         return self._stress
 
     @property
     def force(self):
-        if not self._force:
+        if self._force is None:
             N = self.stress * self.area
             self._force = Force(N, N * self.center.z, -N * self.center.y)
 
