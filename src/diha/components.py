@@ -122,7 +122,9 @@ class StrainPlane:
         super().__init__()
 
         # Angulo entre el vector nn (eje neutro) y el eje "z" positivo
-        self._theta = theta
+        self._theta = None
+        self._cos_theta = None
+        self._sin_theta = None
 
         # Escalar que define la máxima pendiente del plano de deformaciones (curvatura)
         self._kappa = kappa
@@ -139,6 +141,8 @@ class StrainPlane:
         # Vector que define el desplazamiento del eje neutro.
         self._r = None
 
+        self.theta = theta
+
     @property
     def theta(self):
         return self._theta
@@ -149,6 +153,8 @@ class StrainPlane:
         self._n = None
         self._r = None
         self._theta = norm_ang(theta)
+        self._cos_theta = math.cos(self._theta)
+        self._sin_theta = math.sin(self.theta)
 
     @property
     def kappa(self):
@@ -206,7 +212,7 @@ class StrainPlane:
         if isinstance(point, Point2D):
             point = [0, point.y, point.z]
 
-        return np.cross(point, self.nn)[0]
+        return point[1] * self._cos_theta + point[2] * self._sin_theta
 
     def get_dist_nn(self, point):
         """
@@ -221,7 +227,7 @@ class StrainPlane:
             point = [0, point.y, point.z]
 
         s = point - self.r
-        return np.cross(s, self.nn)[0]
+        return s[1] * self._cos_theta + s[2] * self._sin_theta
 
     def get_strain(self, point):
         """
