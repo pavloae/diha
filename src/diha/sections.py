@@ -34,6 +34,8 @@ class RectangularRCSectionBase(ReinforcementConcreteSectionBase):
         self.div_y = div_y
         self.div_z = div_z
 
+        self._concrete_fibers_extremes = []
+
     def increase_resolution(self, factor):
         self.div_y = self.div_y * factor
         self.div_z = self.div_z * factor
@@ -45,20 +47,29 @@ class RectangularRCSectionBase(ReinforcementConcreteSectionBase):
         delta_z = self.b / self.div_z
 
         self._concrete_fibers.clear()
+        self._concrete_fibers_extremes.clear()
         for i in range(self.div_y):
             for j in range(self.div_z):
 
                 y_inicial = -self.h / 2 + i * delta_y
                 z_inicial = -self.b / 2 + j * delta_z
 
-                self._concrete_fibers.append(
-                    RectFiber(
+                fiber = RectFiber(
                         self.concrete, (y_inicial + delta_y / 2, z_inicial + delta_z / 2), delta_y, delta_z
                     )
-                )
+
+                self._concrete_fibers.append(fiber)
+
+                if (i == 0 or i == self.div_y - 1) and (j == 0 or j == self.div_z - 1):
+                    self._concrete_fibers_extremes.append(fiber)
 
         # Se descuentan las armaduras para el cálculo de las fuerzas generadas por el hormigón a compresión
         for fiber in self.steel_fibers:
             self.concrete_fibers.append(
                 RoundFiber(self.concrete, fiber.center, fiber.diam).set_negative()
             )
+
+    def get_concrete_fibers_extremes(self):
+        if not self._concrete_fibers:
+            self.build()
+        return self._concrete_fibers_extremes

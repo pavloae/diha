@@ -53,7 +53,7 @@ class ReinforcementConcreteSectionBase:
         """
         farthest_fiber = None
 
-        for fiber in self.concrete_fibers:
+        for fiber in self.get_concrete_fibers_extremes():
 
             fiber.distance_nn = self.strain_plane.get_dist_nn(fiber.center)
             fiber.distance_nn_cg = self.strain_plane.get_dist_nn_cg(fiber.center)
@@ -156,6 +156,15 @@ class ReinforcementConcreteSectionBase:
             self.build()
         return self._concrete_fibers
 
+    def get_concrete_fibers_extremes(self):
+        """
+            Propiedad para ser sobreescrita por las clases especializadas para devolver solo las fibras de hormigón que
+            son candidatas a ser las más comprimidas y evitar así un análisis de todas las fibras.
+        Returns: List[Fiber]
+
+        """
+        return self.concrete_fibers
+
     @property
     def Ag(self):
         """
@@ -247,7 +256,7 @@ class ReinforcementConcreteSectionBase:
             iteration += 1
 
             if iteration >= max_iterations:
-                raise StopIteration
+                raise StopIteration(iteration)
 
             self.strain_plane.theta += theta_me - self.force_i.theta_M
 
@@ -286,7 +295,7 @@ class ReinforcementConcreteSectionBase:
                     excentricidad será positivo con una fuerza de tracción y negativo con una fuerza de compresión.
         @param theta_me: Ángulo que forma el vector de momentos exteriores con el eje "z" positivo. [rad]
         @param spp_inf: El parámetro que define el plano de deformación inferior. Un número real entre 0 y 1.
-        @param spp_sup: El parámetro que define el plano de deformación inferior. Un número real entre 0 y 1.
+        @param spp_sup: El parámetro que define el plano de deformación inferior. Un número real entre ssp_inf y 1.
         @param iteration: El número iteración actual
         @param max_iterations: El número máximo de iteraciones permitidas
         """
