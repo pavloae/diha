@@ -401,7 +401,9 @@ class ReinforcementConcreteSectionBase:
 
         # Aquí el orden de los factores sí importa: es necesario calcular la fuerza nominal primero para poder hacer
         # uso de la función phi
-        design = self.get_nominal_force(force) * self.phi()
+        nominal = self.get_nominal_force(force)
+        phi = self.phi()
+        design = nominal * phi
 
         # Se limita la resistencia a compresión del hormigón
         limit_factor = min(1, self.get_Pd_max() / design.N) if design.N < 0 else 1
