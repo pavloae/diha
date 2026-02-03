@@ -45,41 +45,39 @@ class ReinforcementConcreteSectionBase:
         self._max_strain_steel = None
         self.force_i = None
 
-    def _get_farthest_fiber_concrete(self) -> Fiber:
+    def _get_farthest_fiber_concrete_dist_to_nn_cg(self) -> Fiber:
         """
-            Obtiene la fibra más comprimida o menos traccionada.
+            Obtiene la distancia al eje neutro baricéntrico de la fibra más comprimida o menos traccionada del hormigón.
 
-        @return: La fibra más alejada del eje neutro.
+        @return: La distancia.
         """
-        farthest_fiber = None
+        max_dist = 0
 
         for fiber in self.get_concrete_fibers_extremes():
 
-            fiber.distance_nn = self.strain_plane.get_dist_nn(fiber.center)
-            fiber.distance_nn_cg = self.strain_plane.get_dist_nn_cg(fiber.center)
+            dist = self.strain_plane.get_dist_nn_cg(fiber.center)
 
-            if not farthest_fiber or fiber.distance_nn > farthest_fiber.distance_nn:
-                farthest_fiber = fiber
+            if dist > max_dist:
+                max_dist = dist
 
-        return farthest_fiber
+        return max_dist
 
-    def _get_farthest_fiber_steel(self) -> Fiber:
+    def _get_farthest_fiber_steel_dist_to_nn_cg(self) -> Fiber:
         """
-            Obtiene la fibra más traccionada o menos comprimida.
+            Obtiene la distancia al eje neutro baricéntrico de la fibra más traccionada o menos comprimida del acero.
 
-        @return: La fibra más alejada del eje neutro.
+        @return: La distancia.
         """
-        farthest_fiber = None
+        max_dist = 0
 
         for fiber in self.steel_fibers:
 
-            fiber.distance_nn = self.strain_plane.get_dist_nn(fiber.center)
-            fiber.distance_nn_cg = self.strain_plane.get_dist_nn_cg(fiber.center)
+            dist = self.strain_plane.get_dist_nn_cg(fiber.center)
 
-            if not farthest_fiber or fiber.distance_nn < farthest_fiber.distance_nn:
-                farthest_fiber = fiber
+            if dist < max_dist:
+                max_dist = dist
 
-        return farthest_fiber
+        return max_dist
 
     def build(self, force=False):
         if not self._built or force:
@@ -127,13 +125,13 @@ class ReinforcementConcreteSectionBase:
         @param strain_steel: Límite de deformación específica para la fibra de acero menos comprimida o más comprimida.
         @return: Una tupla con los valores de curvatura y deformación sobre el eje "X" en el baricentro de la sección.
         """
-        ffc = self._get_farthest_fiber_concrete()  # Fibra más alejada de hormigón
-        ffs = self._get_farthest_fiber_steel()  # Fibra más alejada de acero
-        distance = ffc.distance_nn - ffs.distance_nn
+        dist_c_to_nn_cg = self._get_farthest_fiber_concrete_dist_to_nn_cg()  # Fibra más alejada de hormigón
+        dist_s_to_nn_cg = self._get_farthest_fiber_steel_dist_to_nn_cg()  # Fibra más alejada de acero
+        distance = dist_c_to_nn_cg - dist_s_to_nn_cg
 
         curvature_required = (strain_steel - strain_concrete) / distance
 
-        strain_cg_required = curvature_required * ffc.distance_nn_cg + strain_concrete
+        strain_cg_required = curvature_required * dist_c_to_nn_cg + strain_concrete
 
         return curvature_required, strain_cg_required
 

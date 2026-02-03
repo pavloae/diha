@@ -130,25 +130,25 @@ class TestReinforcementConcreteSection(TestCase):
         section.strain_plane = StrainPlane(0, 1, 0)
         delta_y = section.h / section.div_y
 
-        ffc = section._get_farthest_fiber_concrete()
+        dist_c = section._get_farthest_fiber_concrete_dist_to_nn_cg()
         dist = section.h / 2 - delta_y / 2
-        self.assertAlmostEqual(ffc.center.y, dist)
+        self.assertAlmostEqual(dist_c, dist)
 
-        ffs = section._get_farthest_fiber_steel()
+        dist_s = section._get_farthest_fiber_steel_dist_to_nn_cg()
         dist = section.steel_fibers[-1].center.y
-        self.assertAlmostEqual(ffs.center.y, dist)
+        self.assertAlmostEqual(dist_s, dist)
 
         # Flexión alrededor del eje y
         section.strain_plane = StrainPlane(1.5 * np.pi, 1, 0)
         delta_z = section.b / section.div_z
 
-        ffc = section._get_farthest_fiber_concrete()
+        dist_c = section._get_farthest_fiber_concrete_dist_to_nn_cg()
         dist = section.b / 2 - delta_z / 2
-        self.assertAlmostEqual(ffc.center.z, -dist)
+        self.assertAlmostEqual(dist_c, dist)
 
-        ffs = section._get_farthest_fiber_steel()
+        dist_s = section._get_farthest_fiber_steel_dist_to_nn_cg()
         dist = section.steel_fibers[0].center.z
-        self.assertAlmostEqual(ffs.center.z, dist)
+        self.assertAlmostEqual(dist_s, -dist)
 
     def test_get_params(self):
         section = get_section_1()

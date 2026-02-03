@@ -25,8 +25,6 @@ class Fiber:
 
         self._area = area
 
-        self.distance_nn = None
-        self.distance_nn_cg = None
         self._strain = None
         self._stress = None
         self._force = None
