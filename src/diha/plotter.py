@@ -98,7 +98,8 @@ def plot_diagram_2d(section: ReinforcementConcreteSectionBase, theta, points=32,
     design = []
 
     for val in range(points + 1):
-        section.set_limit_plane_by_strains(*section._get_limits_strain(val / points), theta)
+        spp = val / points
+        section.iterate_plane_over_theta(spp, theta)
 
         M, N = np.linalg.norm(section.force_i.M) * 1e-6, section.force_i.N * 1e-3
 

@@ -1,9 +1,12 @@
+import logging
+import math
 import pickle
 from unittest import TestCase
 
 import numpy as np
 from matplotlib import pyplot as plt
 
+from diha.builders import SectionBuilder
 from diha.components import Force, StrainPlane
 from diha.fibers import RoundFiber
 from diha.materials import ConcreteMaterial, SteelMaterial
@@ -31,12 +34,12 @@ class TestReinforcementConcreteSection(TestCase):
         Pn = Pnc + Pns
 
         # Mientras la fibra menos comprimida del acero esté en fluencia las fuerzas internas deberían ser iguales
-        section.set_limit_plane_by_strains(-0.003, -0.003, 0)
+        section.iterate_plane_over_theta(-0.003, -0.003, 0)
         self.assertAlmostEqual(-Pn, section.force_i.N, delta=1e3)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertAlmostEqual(0, section.force_i.Mz)
 
-        section.set_limit_plane_by_strains(-0.003, -esy, 0)
+        section.iterate_plane_over_theta(-0.003, -esy, 0)
         self.assertAlmostEqual(-Pn, section.force_i.N, delta=1e3)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertAlmostEqual(0, section.force_i.Mz)
@@ -44,12 +47,12 @@ class TestReinforcementConcreteSection(TestCase):
         # Cuando la fibra menos comprimida del acero entra en el periodo elástico (ϵ<fy/E) comienzan a variar las
         # fuerzas internas
         epsilon_y = section.steel.fy / section.steel.E
-        section.set_limit_plane_by_strains(-0.003, -0.95 * epsilon_y, 0)
+        section.iterate_plane_over_theta(-0.003, -0.95 * epsilon_y, 0)
         self.assertGreaterEqual(section.force_i.N, -Pn)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertGreaterEqual(section.force_i.Mz, 0)
 
-        section.set_limit_plane_by_strains(-0.003, 0.005, 0)
+        section.iterate_plane_over_theta(-0.003, 0.005, 0)
         self.assertGreaterEqual(section.force_i.N, -Pn)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertGreaterEqual(section.force_i.Mz, 0)
@@ -60,19 +63,19 @@ class TestReinforcementConcreteSection(TestCase):
         bottom_steel = np.min([fiber.center[0] for fiber in section.steel_fibers])
         epsilon_c = epsilon_y / (top_steel - bottom_steel) * (top_concrete - bottom_steel)
 
-        section.set_limit_plane_by_strains(0.95 * epsilon_c, 0.005, 0)
+        section.iterate_plane_over_theta(0.95 * epsilon_c, 0.005, 0)
         self.assertGreaterEqual(section.force_i.N, -Pn)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertGreaterEqual(section.force_i.Mz, 0)
 
         # Cuando la fibra más traccionada del acero alcanza el límite plástico las fuerza internas vuelven a mantenerse
         # iguales.
-        section.set_limit_plane_by_strains(epsilon_c, 0.005, 0)
+        section.iterate_plane_over_theta(epsilon_c, 0.005, 0)
         self.assertAlmostEqual(Pns, section.force_i.N, delta=1e3)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertAlmostEqual(0, section.force_i.Mz)
 
-        section.set_limit_plane_by_strains(0.005, 0.005, 0)
+        section.iterate_plane_over_theta(0.005, 0.005, 0)
         self.assertAlmostEqual(Pns, section.force_i.N, delta=1e3)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertAlmostEqual(0, section.force_i.Mz)
@@ -82,31 +85,31 @@ class TestReinforcementConcreteSection(TestCase):
         section = get_section_1()
 
         # Flexión positiva alrededor del eje "y"
-        section.set_limit_plane_by_strains(-0.003, 0.005, 1.5 * np.pi)
+        section.iterate_plane_over_theta(-0.003, 0.005, 1.5 * np.pi)
         self.assertGreaterEqual(section.force_i.My, 0.00)
         self.assertAlmostEqual(0.00, section.force_i.Mz, places=5)
 
         # Compresión pura
-        section.set_limit_plane_by_strains(-0.003, -0.003, 0)
+        section.iterate_plane_over_theta(-0.003, -0.003, 0)
         self.assertLessEqual(section.force_i.N, 0)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertAlmostEqual(0, section.force_i.Mz)
 
         # Tracción pura
-        section.set_limit_plane_by_strains(0.005, 0.005, 0)
+        section.iterate_plane_over_theta(0.005, 0.005, 0)
         self.assertGreaterEqual(section.force_i.N, 0)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertAlmostEqual(0, section.force_i.Mz)
 
         # Flexión positiva alrededor del eje "z"
-        section.set_limit_plane_by_strains(-0.003, 0.005, 0)
+        section.iterate_plane_over_theta(-0.003, 0.005, 0)
         self.assertAlmostEqual(0, section.force_i.My)
         self.assertGreaterEqual(section.force_i.Mz, 0)
 
     def test_set_limit_plane_by_eccentricity(self):
         section = get_section_1()
 
-        self.assertRaises(ValueError, section.set_limit_plane_by_eccentricity, 0, 0)
+        self.assertRaises(ValueError, section.iterate_plane_over_eccentricity, 0, 0)
 
     def test_get_forces(self):
         section = get_section_1()
@@ -210,7 +213,7 @@ class TestReinforcementConcreteSection(TestCase):
         section = get_section_1()
         section.build()
 
-        section.set_limit_plane_by_strains(-0.003, -0.003, theta_me=0)
+        section.iterate_plane_over_theta(-0.003, -0.003, theta_me=0)
 
     def test_design_force(self):
         section = get_section_1()
@@ -240,7 +243,7 @@ class TestReinforcementConcreteSection(TestCase):
         force = Force(N=-2000e3, Mz=200e6)
         self.assertAlmostEqual(-3900e3, section.get_design_force(force).N, delta=100e3)
 
-    def test_get_rel(self):
+    def test_get_rel_N(self):
         section = get_section_1()
 
         # Compresión pura
@@ -248,6 +251,113 @@ class TestReinforcementConcreteSection(TestCase):
         force = Force(N=-1000000.0)
         rel = force.N / (0.65 * 0.8 * section.get_Pnc())
         self.assertAlmostEqual(section.get_rel(force), rel)
+
+    def test_get_rel_N_My(self):
+        section = get_section_1()
+
+        # Flexo compresión recta
+
+        force = Force(N=-1000000.0, My=200e6)
+        self.assertAlmostEqual(section.get_rel(force), 0.4755454677727744)
+
+    def test_get_rel_N_My_Mz(self):
+        section = get_section_1()
+
+        # Flexo compresión oblicua
+
+        force = Force(N=-1000000.0, My=200e6, Mz=200e6)
+        self.assertAlmostEqual(section.get_rel(force), 0.5443408196726992)
+
+    def test_get_rel_My(self):
+        section = get_section_1()
+
+        # Flexión recta
+
+        force = Force(My=200e6)
+        self.assertAlmostEqual(section.get_rel(force), 0.5613884717025281)
+
+    def test_get_rel_My_Mz(self):
+        section = get_section_1()
+
+        # Flexión recta
+
+        force = Force(My=200e6, Mz=200e6)
+        self.assertAlmostEqual(section.get_rel(force), 0.5746714103443769)
+
+    def test_get_rel_M(self):
+        section = get_section_1()
+
+        M=200e6
+
+        rel = [
+            0.5613884717025281,
+            0.3790537953659196,
+            0.4334741056154988,
+            0.41247278268474674,
+            0.38165022531977855,
+            0.5526431709167475,
+            0.37378633726219634,
+            0.460145822315372,
+            0.4060251177658347,
+            0.3925880195036781,
+            0.5066172844850221,
+            0.37669470910653435,
+            0.49752080757661227,
+            0.39447737386519566,
+            0.4011949938675405,
+            0.46959773591697523,
+            0.3751475571435447,
+            0.5378998709812833
+        ]
+
+        for n, theta in enumerate(range(0, 90, 5)):
+            My = M * math.cos(theta)
+            Mz = M * math.sin(theta)
+            force = Force(My=My, Mz=Mz)
+            self.assertAlmostEqual(section.get_rel(force), rel[n])
+
+    def test_get_rel_M1(self):
+
+        import logging
+
+        logger = logging.getLogger('diha.calc')
+
+        # Guardar estado original
+        old_level = logger.level
+        old_handlers = logger.handlers[:]
+
+        # Crear handler temporal
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(levelname)s | %(message)s')
+        handler.setFormatter(formatter)
+
+        logger.handlers = [handler]
+        logger.setLevel(logging.DEBUG)
+        logger.propagate = False
+
+        try:
+            REC_18x35_6_12 = {
+                "concrete": {"fpc": 17},
+                "steel": {"fy": 420, "E": 200000},
+                "bars": [
+                    {"center": [150, 65], "diam": 12}, {"center": [150, -65], "diam": 12},
+                    {"center": [0, 65], "diam": 12}, {"center": [0, -65], "diam": 12},
+                    {"center": [-150, 65], "diam": 12}, {"center": [-150, -65], "diam": 12}
+                ],
+                "type": "rectangular",
+                "properties": {"b": 180, "h": 350}
+            }
+
+            section = SectionBuilder().build(REC_18x35_6_12)
+            force = Force(N=0.1, My=4170123.4, Mz=337.2)
+            section.get_rel(force)
+
+        finally:
+            # Restaurar logger
+            logger.handlers = old_handlers
+            logger.setLevel(old_level)
+            logger.propagate = True
 
     def test_bending_sample_2_I_1(self):
 
@@ -307,7 +417,7 @@ class TestReinforcementConcreteSection(TestCase):
         section = get_section_1()
         section.increase_resolution(2)
 
-        section.set_limit_plane_by_strains(-0.003, -0.00284, theta_me=0)
+        section.iterate_plane_over_theta(-0.003, -0.00284, theta_me=0)
         section._calc_force_i()
 
         n = 100
@@ -316,7 +426,7 @@ class TestReinforcementConcreteSection(TestCase):
 
         eccentricity = []
         for strain in strains:
-            section.set_limit_plane_by_strains(*strain, theta_me=np.pi)
+            section.iterate_plane_over_theta(*strain, theta_me=np.pi)
             eccentricity.append(section.force_i.e)
 
         plt.plot(spp, eccentricity)
@@ -324,5 +434,5 @@ class TestReinforcementConcreteSection(TestCase):
 
     def test_analyze(self):
         section = get_section_3()
-        section.set_limit_plane_by_strains(-0.003, -0.003, theta_me=0)
+        section.iterate_plane_over_theta(-0.003, -0.003, theta_me=0)
         section._calc_force_i()

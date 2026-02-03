@@ -53,7 +53,7 @@ class Force:
         if math.isclose(0.0, self.mod_M, abs_tol=self.atol, rel_tol=self.rtol):
             raise ArithmeticError("No se puede determinar una excentricidad válida.")
 
-        return np.inf
+        return math.copysign(math.inf, self.N)
 
     def __add__(self, other):
         if not isinstance(other, Force):
@@ -174,6 +174,16 @@ class StrainPlane:
     def xo(self, xo):
         self._r = None
         self._xo = xo
+
+    def set_params(self, theta=None, kappa=None, xo=None):
+        if theta is not None:
+            self.theta = theta
+
+        if kappa is not None:
+            self.kappa = kappa
+
+        if xo is not None:
+            self.xo = xo
 
     @property
     def n(self):
